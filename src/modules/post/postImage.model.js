@@ -1,0 +1,2 @@
+// PostImage 모델
+

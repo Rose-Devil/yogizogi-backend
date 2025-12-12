@@ -1,0 +1,13 @@
+{
+  "name": "yogizogi-backend",
+  "version": "1.0.0",
+  "description": "YogiZogi Backend API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

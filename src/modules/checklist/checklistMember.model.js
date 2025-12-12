@@ -1,0 +1,2 @@
+// ChecklistMember 모델
+
