@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # YogiZogi Backend
 
 여행 기록 공유 플랫폼 백엔드 API 서버
@@ -51,3 +52,7 @@ npm start
 - **feed**: 피드 조회 및 검색
 - **interaction**: 좋아요, 북마크, 댓글 기능
 - **checklist**: 공용 짐 체크리스트
+=======
+# yogizogi-backend
+백엔드 API 서버
+>>>>>>> 4a0388f2ede0d314c7fa0458ff9077e086008ad8
