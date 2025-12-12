@@ -1,58 +1,48 @@
-<<<<<<< HEAD
-# YogiZogi Backend
+# Yogizogi Backend (`yogizogi-backend`)
 
-여행 기록 공유 플랫폼 백엔드 API 서버
+여기저기(Yogizogi) 서비스의 **백엔드 서버** 레포입니다.  
+Node.js + Express + TypeScript 기반이며, **도메인(기능) 단위 모듈 구조**를 사용합니다.
 
-## 프로젝트 구조
+이 문서는 **팀원이 “어떤 작업을 할 때 어떤 폴더를 건드려야 하는지”**를 정리한 가이드입니다.
 
-```
+---
+
+## 1. 전체 구조 개요
+
+```txt
 yogizogi-backend/
 ├─ src/
-│  ├─ app.js                 # Express 앱 설정 (미들웨어, 라우터 연결)
-│  ├─ server.js              # 서버 시작 포인트
-│  ├─ config/                # 환경변수, DB 연결, 설정
-│  ├─ common/                # 공통 유틸 / 미들웨어
-│  ├─ modules/               # 도메인(ERD 기준) 별 모듈
-│  └─ infra/                 # 외부 연동 (이메일, 파일 업로드 등)
+│  ├─ app.ts
+│  ├─ server.ts
+│  ├─ config/
+│  ├─ common/
+│  ├─ modules/
+│  └─ infra/
+├─ prisma/ or models/
 ├─ .env.example
 ├─ package.json
+├─ tsconfig.json
 └─ README.md
+
+## 팀 개발 규칙
+
+1. 새 기능 추가
+
+관련 도메인 폴더를 src/modules/ 아래에서 찾거나 새로 만든다.
+
+그 안에 *.route.ts, *.controller.ts, *.service.ts, *.repository.ts를 추가한다.
+
+2. 공통 기능/도구
+
+재사용 가능한 로직: src/common/utils/
+
+공통 미들웨어: src/common/middleware/
+
+3. 환경/DB 설정 변경
+
+src/config/env.ts, src/config/db.ts, .env 수정
+
+4. 외부 서비스 연동
+
+메일, 파일 업로드, 외부 API 등: src/infra/ 아래에 디렉터리 추가 및 구현
 ```
-
-## 설치 및 실행
-
-1. 의존성 설치
-
-```bash
-npm install
-```
-
-2. 환경변수 설정
-
-```bash
-cp .env.example .env
-# .env 파일을 열어 필요한 값들을 설정하세요
-```
-
-3. 서버 실행
-
-```bash
-# 개발 모드
-npm run dev
-
-# 프로덕션 모드
-npm start
-```
-
-## 모듈 설명
-
-- **auth**: 로그인/회원가입/비밀번호 재설정
-- **user**: 사용자 프로필 및 설정 관리
-- **post**: 여행 게시글 작성 및 관리
-- **feed**: 피드 조회 및 검색
-- **interaction**: 좋아요, 북마크, 댓글 기능
-- **checklist**: 공용 짐 체크리스트
-=======
-# yogizogi-backend
-백엔드 API 서버
->>>>>>> 4a0388f2ede0d314c7fa0458ff9077e086008ad8
