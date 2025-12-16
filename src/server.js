@@ -1,8 +1,11 @@
-// 서버 시작 포인트
-// 서버 시작 포인트
 const app = require("./app");
 const { config } = require("./config/env");
+const { checkDbConnection } = require("./config/db");
 
-app.listen(config.host.port, () => {
-  console.log(`Server listening on http://localhost:${config.host.port}`);
-});
+(async () => {
+  await checkDbConnection();
+
+  app.listen(config.host.port, () => {
+    console.log(`Server listening on http://localhost:${config.host.port}`);
+  });
+})();
