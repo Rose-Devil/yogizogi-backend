@@ -1,2 +1,6 @@
-// 서버 시작 포인트
+import app from './app.js'
+import { PORT } from './config/env.js'
 
+app.listen(PORT, () => {
+  console.log(`[server] listening on http://localhost:${PORT}`)
+})
