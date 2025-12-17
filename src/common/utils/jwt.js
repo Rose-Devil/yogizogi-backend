@@ -1,24 +1,25 @@
-// JWT 유틸리티
-// JWT 생성/검증 유틸 (X_Server controller/auth.mjs 흐름 기반)
+// src/common/utils/jwt.js
 const jwt = require("jsonwebtoken");
 const { config } = require("../../config/env");
 
-const AUTH_ERROR = { message: "인증 에러" };
+// Access: 12시간, Refresh: 3일
+const ACCESS_EXPIRES_IN = "12h";
+const REFRESH_EXPIRES_IN = "3d";
 
-// X_Server처럼 { id } payload로 토큰 만들기
-function createJwtToken(id) {
-  return jwt.sign({ id }, config.jwt.secretKey, {
-    expiresIn: config.jwt.expiresInSec, // 초 단위
+function createAccessToken(userId) {
+  return jwt.sign({ id: userId, typ: "access" }, config.jwt.secretKey, {
+    expiresIn: ACCESS_EXPIRES_IN,
   });
 }
 
-// 토큰 검증 (에러나면 null 반환하게 해서 middleware에서 처리하기 쉽도록)
-function verifyJwtToken(token) {
-  try {
-    return jwt.verify(token, config.jwt.secretKey);
-  } catch (e) {
-    return null;
-  }
+function createRefreshToken(userId) {
+  return jwt.sign({ id: userId, typ: "refresh" }, config.jwt.secretKey, {
+    expiresIn: REFRESH_EXPIRES_IN,
+  });
 }
 
-module.exports = { AUTH_ERROR, createJwtToken, verifyJwtToken };
+function verifyToken(token) {
+  return jwt.verify(token, config.jwt.secretKey);
+}
+
+module.exports = { createAccessToken, createRefreshToken, verifyToken };
