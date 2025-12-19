@@ -1,13 +1,12 @@
 // src/common/middleware/errorHandler.js
 
-// 에러 핸들러 미들웨어 (반드시 app.use(errorHandler)로 "맨 마지막"에 등록)
 function errorHandler(err, req, res, next) {
   console.error("❌ Error:", err);
 
   // 이미 응답이 나간 경우 Express 기본 에러 처리로 넘김
   if (res.headersSent) return next(err);
 
-  // Sequelize Validation Error
+  // (있을 수도 있는) Sequelize Validation Error
   if (err?.name === "SequelizeValidationError") {
     return res.status(400).json({
       success: false,
@@ -19,7 +18,7 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  // Sequelize Unique Constraint Error
+  // (있을 수도 있는) Sequelize Unique Constraint Error
   if (err?.name === "SequelizeUniqueConstraintError") {
     return res.status(409).json({
       success: false,
@@ -40,7 +39,7 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  // Custom Error (err.statusCode를 사용하는 경우)
+  // 커스텀 에러(statusCode/message) 지원
   const statusCode = err?.statusCode || 500;
 
   return res.status(statusCode).json({
