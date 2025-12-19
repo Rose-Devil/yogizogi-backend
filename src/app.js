@@ -1,16 +1,31 @@
-import express from 'express'
-import path from 'node:path'
-import placesRouter from './modules/places/places.route.js'
-import { CLIENT_DIST } from './config/env.js'
+// src/app.js
+const express = require("express");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
 
-const app = express()
+// ✅ 추가: swagger ui, spec
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./swagger");
 
-app.use(express.json())
-app.use('/api', placesRouter)
+const { errorHandler } = require("./common/middleware/errorHandler");
+const authRouter = require("./modules/auth/auth.route");
 
-app.use(express.static(CLIENT_DIST))
-app.get('*', (req, res) => {
-  res.sendFile(path.join(CLIENT_DIST, 'index.html'))
-})
+const app = express();
 
-export default app
+app.use(express.json());
+app.use(cookieParser());
+
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
+
+// ✅ Swagger UI
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.use("/api/auth", authRouter);
+app.use(errorHandler);
+
+module.exports = app;

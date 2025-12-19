@@ -1,27 +1,35 @@
-import dotenv from 'dotenv'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+// src/config/env.js
+const dotenv = require("dotenv");
+dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-// Always load .env relative to project root, even if process.cwd() differs.
-dotenv.config({ path: path.resolve(__dirname, '../../.env') })
-
-const DEFAULT_CLIENT_DIST = path.resolve(__dirname, '../../../yogizogi-frontend/dist')
-
-export const PORT = process.env.PORT || 4002
-export const CLIENT_DIST = process.env.CLIENT_DIST || DEFAULT_CLIENT_DIST
-
-const tourApiKey = process.env.TOUR_API_KEY || process.env.VITE_TOUR_API_KEY
-export const TOUR_API_KEY = tourApiKey
-
-export const KAKAO_REST_API_KEY =
-  process.env.KAKAO_REST_API_KEY || process.env.VITE_KAKAO_MAP_KEY
-
-export const env = {
-  PORT,
-  CLIENT_DIST,
-  TOUR_API_KEY,
-  KAKAO_REST_API_KEY,
+function required(key, defaultValue = undefined) {
+  const value = process.env[key] ?? defaultValue;
+  if (value == null || value === "") {
+    throw new Error(`환경변수 ${key}가 설정되지 않았습니다.`);
+  }
+  return value;
 }
+
+const portFromEnv = process.env.HOST_PORT ?? process.env.PORT ?? 9090;
+
+const config = {
+  host: {
+    port: parseInt(portFromEnv, 10),
+  },
+  jwt: {
+    secretKey: required("JWT_SECRET"),
+    expiresInSec: parseInt(process.env.JWT_EXPIRES_SEC ?? 60 * 60 * 24 * 2, 10),
+  },
+  bcrypt: {
+    saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS ?? 12, 10),
+  },
+  db: {
+    host: required("DB_HOST"),
+    port: parseInt(process.env.DB_PORT ?? 3306, 10),
+    user: required("DB_USER"),
+    password: process.env.DB_PASSWORD ?? "",
+    name: required("DB_NAME"),
+  },
+};
+
+module.exports = { config };

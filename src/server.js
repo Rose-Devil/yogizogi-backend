@@ -1,6 +1,11 @@
-import app from './app.js'
-import { PORT } from './config/env.js'
+const app = require("./app");
+const { config } = require("./config/env");
+const { checkDbConnection } = require("./config/db");
 
-app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`)
-})
+(async () => {
+  await checkDbConnection();
+
+  app.listen(config.host.port, () => {
+    console.log(`Server listening on http://localhost:${config.host.port}`);
+  });
+})();
