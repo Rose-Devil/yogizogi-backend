@@ -2,7 +2,7 @@
   "name": "yogizogi-backend",
   "version": "1.0.0",
   "description": "YogiZogi Backend API",
-  "type": "module",
+  "type": "commonjs",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

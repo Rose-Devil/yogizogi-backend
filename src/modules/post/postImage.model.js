@@ -1,7 +1,7 @@
 // PostImage 모델
 
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../config/db");
+const { sequelize } = require("../../config/db");
 
 const PostImage = sequelize.define(
   "PostImage",

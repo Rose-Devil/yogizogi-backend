@@ -1,5 +1,6 @@
 // src/config/db.js
 const mysql = require("mysql2/promise");
+const { Sequelize } = require("sequelize");
 const { config } = require("./env");
 
 const pool = mysql.createPool({
@@ -12,6 +13,18 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+const sequelize = new Sequelize(
+  config.db.name,
+  config.db.user,
+  config.db.password,
+  {
+    host: config.db.host,
+    port: config.db.port,
+    dialect: "mysql",
+    logging: false,
+  }
+);
 
 // server.js에서 await checkDbConnection()으로 호출
 async function checkDbConnection() {
@@ -28,4 +41,4 @@ async function checkDbConnection() {
   }
 }
 
-module.exports = { pool, checkDbConnection };
+module.exports = { pool, sequelize, checkDbConnection };

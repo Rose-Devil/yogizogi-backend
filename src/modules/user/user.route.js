@@ -1,5 +1,5 @@
 const express = require("express");
-const authGuard = require("../../common/middleware/authGuard");
+const { authGuard } = require("../../common/middleware/authGuard");
 const {
   getMyPage,
   deleteMyPost,
