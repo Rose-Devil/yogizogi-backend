@@ -1,3 +1,4 @@
+// src/config/db.js
 const mysql = require("mysql2/promise");
 const { config } = require("./env");
 
@@ -12,13 +13,18 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+// DB 연결 테스트 (server.js에서 await checkDbConnection()으로 호출)
 async function checkDbConnection() {
-  const conn = await pool.getConnection();
+  let conn;
   try {
+    conn = await pool.getConnection();
     await conn.ping();
     console.log("✅ MySQL 연결 성공");
+  } catch (error) {
+    console.error("❌ MySQL 연결 실패:", error);
+    throw error; // 서버 시작 로직에서 잡아서 종료하도록
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 }
 

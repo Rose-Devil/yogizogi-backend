@@ -10,19 +10,26 @@ function required(key, defaultValue = undefined) {
   return value;
 }
 
+// PORT 우선순위: HOST_PORT > PORT > 9090
 const portFromEnv = process.env.HOST_PORT ?? process.env.PORT ?? 9090;
 
 const config = {
   host: {
     port: parseInt(portFromEnv, 10),
   },
+
+  nodeEnv: process.env.NODE_ENV ?? "development",
+
   jwt: {
     secretKey: required("JWT_SECRET"),
+    // 기본: 2일(초)
     expiresInSec: parseInt(process.env.JWT_EXPIRES_SEC ?? 60 * 60 * 24 * 2, 10),
   },
+
   bcrypt: {
     saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS ?? 12, 10),
   },
+
   db: {
     host: required("DB_HOST"),
     port: parseInt(process.env.DB_PORT ?? 3306, 10),
