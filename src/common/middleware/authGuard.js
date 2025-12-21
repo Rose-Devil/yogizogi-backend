@@ -17,8 +17,8 @@ function authGuard(req, res, next) {
   try {
     const decoded = verifyToken(token);
 
-    // access only (prevent calling APIs with refresh token)
-    if (decoded.typ && decoded.typ !== "access") {
+    // access만 허용 (refresh로 API 호출 방지)
+    if (decoded.typ !== "access") {
       return res.status(401).json({ message: "Access Token이 아닙니다." });
     }
 
