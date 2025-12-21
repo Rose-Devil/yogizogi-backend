@@ -1,7 +1,7 @@
 // src/server.js
-const app = require("./app");
 const { config } = require("./config/env");
 const { checkDbConnection } = require("./config/db");
+const app = require("./app");
 
 (async () => {
   const port = config.host.port;
@@ -10,11 +10,11 @@ const { checkDbConnection } = require("./config/db");
     await checkDbConnection();
 
     app.listen(port, () => {
-      console.log(`🚀 Server listening on http://localhost:${port}`);
-      console.log(`📚 Swagger UI: http://localhost:${port}/docs`);
+      console.log(`Server listening on http://localhost:${port}`);
+      console.log(`Swagger UI: http://localhost:${port}/docs`);
     });
   } catch (error) {
-    console.error("❌ 서버 시작 실패:", error);
+    console.error("Server startup failed:", error);
     process.exit(1);
   }
 })();

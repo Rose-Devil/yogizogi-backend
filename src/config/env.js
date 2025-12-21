@@ -5,9 +5,17 @@ dotenv.config();
 function required(key, defaultValue = undefined) {
   const value = process.env[key] ?? defaultValue;
   if (value == null || value === "") {
-    throw new Error(`환경변수 ${key}가 설정되지 않았습니다.`);
+    throw new Error(`Missing required env var: ${key}`);
   }
   return value;
+}
+
+function parseCsv(value) {
+  if (value == null) return [];
+  return String(value)
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 }
 
 // PORT 우선순위: HOST_PORT > PORT > 9090
@@ -20,9 +28,29 @@ const config = {
 
   nodeEnv: process.env.NODE_ENV ?? "development",
 
+  cors: {
+    origins: (() => {
+      const fromList = parseCsv(process.env.CORS_ORIGINS);
+      if (fromList.length > 0) return fromList;
+
+      const single = (process.env.CORS_ORIGIN ?? "").trim();
+      if (single) return [single];
+
+      return ["http://localhost:3000"];
+    })(),
+  },
+
+  swagger: {
+    serverUrl: (process.env.SWAGGER_SERVER_URL ?? "").trim(),
+    apis: (() => {
+      const apis = parseCsv(process.env.SWAGGER_APIS);
+      return apis.length > 0 ? apis : null;
+    })(),
+    logPaths: process.env.SWAGGER_LOG_PATHS === "true",
+  },
+
   jwt: {
     secretKey: required("JWT_SECRET"),
-    // 기본: 2일(초)
     expiresInSec: parseInt(process.env.JWT_EXPIRES_SEC ?? 60 * 60 * 24 * 2, 10),
   },
 
