@@ -36,7 +36,7 @@ const config = {
       const single = (process.env.CORS_ORIGIN ?? "").trim();
       if (single) return [single];
 
-      return ["http://localhost:3000"];
+      return ["http://localhost:5173", "http://localhost:3000"];
     })(),
   },
 
