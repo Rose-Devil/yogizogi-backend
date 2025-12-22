@@ -17,9 +17,13 @@ const deleteMyComment = async (userId, commentId) => {
   const ok = await userRepository.deleteMyComment(userId, commentId);
   if (!ok) throw new Error("댓글 삭제 실패");
 };
-
+const updateNickname = async (userId, nickname) => {
+  const ok = await userRepository.updateNickname(userId, nickname);
+  if (!ok) throw new Error("닉네임 변경 실패");
+};
 module.exports = {
   getMyPage,
   deleteMyPost,
   deleteMyComment,
+  updateNickname,
 };

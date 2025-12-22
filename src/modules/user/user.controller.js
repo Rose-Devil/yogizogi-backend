@@ -32,8 +32,26 @@ const deleteMyComment = async (req, res, next) => {
   }
 };
 
+const updateNickname = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { nickname } = req.body;
+
+    if (!nickname) {
+      return res.status(400).json({ message: "nickname required" });
+    }
+
+    await userService.updateNickname(userId, nickname);
+
+    res.json({ nickname });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMyPage,
   deleteMyPost,
   deleteMyComment,
+  updateNickname,
 };

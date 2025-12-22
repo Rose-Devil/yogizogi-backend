@@ -14,6 +14,7 @@ const { errorHandler } = require("./common/middleware/errorHandler");
 const authRouter = require("./modules/auth/auth.route");
 const postRouters = require("./modules/post/post.route");
 const userRouter = require("./modules/user/user.route");
+const uploadRouter = require("./modules/upload/upload.route");
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/auth", authRouter);
 app.use("/api/posts", postRouters);
 app.use("/api/user", userRouter);
+app.use("/api/upload", uploadRouter);
 
 // 기본 라우트
 app.get("/", (req, res) => {

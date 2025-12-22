@@ -51,6 +51,13 @@ const deleteMyComment = async (userId, commentId) => {
   comments.splice(index, 1);
   return true;
 };
+const updateNickname = async (userId, nickname) => {
+  const user = users.find((u) => u.id === userId);
+  if (!user) return false;
+
+  user.nickname = nickname;
+  return true;
+};
 
 module.exports = {
   getUserInfo,
@@ -58,4 +65,5 @@ module.exports = {
   getMyComments,
   deleteMyPost,
   deleteMyComment,
+  updateNickname,
 };
