@@ -4,10 +4,6 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const { config } = require("./config/env");
 
-// Swagger
-const swaggerUi = require("swagger-ui-express");
-const swaggerSpec = require("./swagger");
-
 // Middleware
 const { errorHandler } = require("./common/middleware/errorHandler");
 
@@ -29,8 +25,6 @@ app.use(
     credentials: true,
   })
 );
-
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/auth", authRouter);
 app.use("/api/posts", postRouters);

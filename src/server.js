@@ -11,7 +11,6 @@ const app = require("./app");
 
     app.listen(port, () => {
       console.log(`Server listening on http://localhost:${port}`);
-      console.log(`Swagger UI: http://localhost:${port}/docs`);
     });
   } catch (error) {
     console.error("Server startup failed:", error);

@@ -40,15 +40,6 @@ const config = {
     })(),
   },
 
-  swagger: {
-    serverUrl: (process.env.SWAGGER_SERVER_URL ?? "").trim(),
-    apis: (() => {
-      const apis = parseCsv(process.env.SWAGGER_APIS);
-      return apis.length > 0 ? apis : null;
-    })(),
-    logPaths: process.env.SWAGGER_LOG_PATHS === "true",
-  },
-
   jwt: {
     secretKey: required("JWT_SECRET"),
     expiresInSec: parseInt(process.env.JWT_EXPIRES_SEC ?? 60 * 60 * 24 * 2, 10),
