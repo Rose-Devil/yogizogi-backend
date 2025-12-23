@@ -12,6 +12,7 @@ const app = require("./app");
     app.listen(port, () => {
       console.log(`🚀 Server listening on http://localhost:${port}`);
 
+
     });
   } catch (error) {
     console.error("Server startup failed:", error);

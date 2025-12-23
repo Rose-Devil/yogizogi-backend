@@ -36,17 +36,8 @@ const config = {
       const single = (process.env.CORS_ORIGIN ?? "").trim();
       if (single) return [single];
 
-      return ["http://localhost:3000"];
+      return ["http://localhost:5173", "http://localhost:3000"];
     })(),
-  },
-
-  swagger: {
-    serverUrl: (process.env.SWAGGER_SERVER_URL ?? "").trim(),
-    apis: (() => {
-      const apis = parseCsv(process.env.SWAGGER_APIS);
-      return apis.length > 0 ? apis : null;
-    })(),
-    logPaths: process.env.SWAGGER_LOG_PATHS === "true",
   },
 
   jwt: {
