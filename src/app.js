@@ -22,7 +22,11 @@ app.use(cookieParser());
 // CORS (쿠키 사용 시 credentials 필수)
 app.use(
   cors({
+<<<<<<< Updated upstream
     origin: "http://localhost:3000",
+=======
+    origin: "http://localhost:5173", // 프론트 개발 서버 주소 하드코드임요 나중에 수정해야함
+>>>>>>> Stashed changes
     credentials: true,
   })
 );
