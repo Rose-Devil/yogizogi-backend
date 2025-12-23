@@ -116,6 +116,10 @@ exports.createPost = async (postData) => {
 
 // 게시글 수정
 exports.updatePost = async (id, updateData) => {
+  // 태그는 별도로 처리
+  const tags = updateData.tags;
+  delete updateData.tags;
+
   // 수정 불가 필드 제거
   delete updateData.id;
   delete updateData.author_id;
@@ -130,7 +134,29 @@ exports.updatePost = async (id, updateData) => {
     throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
   }
 
-  return updatedPost;
+  // 태그 업데이트 (tags가 제공된 경우)
+  if (tags !== undefined) {
+    if (Array.isArray(tags)) {
+      // 기존 태그 모두 제거
+      const existingTags = await postRepository.findTagsByPostId(id);
+      for (const tag of existingTags) {
+        await postRepository.removeTagFromPost(id, tag.id);
+      }
+
+      // 새 태그 추가
+      for (const tagName of tags) {
+        const tag = await postRepository.findOrCreateTag(tagName);
+        // 중복 체크
+        const existingPostTag = await postRepository.findPostTag(id, tag.id);
+        if (!existingPostTag) {
+          await postRepository.addTagToPost(id, tag.id);
+        }
+      }
+    }
+  }
+
+  // 태그 포함해서 다시 조회
+  return await postRepository.findPostById(id);
 };
 
 // 게시글 삭제
@@ -144,35 +170,45 @@ exports.deletePost = async (id) => {
   return deletedPost;
 };
 
-// 인기 게시글 조회
-exports.getPopularPosts = async (limit = 10) => {
-  return await postRepository.findPopularPosts(parseInt(limit));
+// 인기 게시글 조회 (페이지네이션 추가)
+exports.getPopularPosts = async (queryParams) => {
+  const { page = 1, limit = 10 } = queryParams || {};
+  const offset = (page - 1) * limit;
+
+  const result = await postRepository.findPopularPosts(
+    parseInt(limit),
+    parseInt(offset)
+  );
+
+  return {
+    posts: result.rows,
+    total: result.count,
+    page: parseInt(page),
+    limit: parseInt(limit),
+  };
 };
 
-// 지역별 게시글 조회
-exports.findPostsByRegion = async (region, limit, offset) => {
-  return await TravelPost.findAndCountAll({
-    where: { region, is_deleted: false },
-    include: [
-      {
-        model: PostImage,
-        as: "images",
-        attributes: ["id", "image_url", "sort_order"],
-        separate: true,
-        order: [["sort_order", "ASC"]],
-      },
-    ],
-    order: [["created_at", "DESC"]],
-    limit,
-    offset,
-    distinct: true,
-  });
+// 지역별 게시글 조회 (페이지네이션 추가)
+exports.getPostsByRegion = async (region, page = 1, limit = 10) => {
+  const offset = (page - 1) * limit;
+
+  const result = await postRepository.findPostsByRegion(
+    region,
+    parseInt(limit),
+    parseInt(offset)
+  );
+
+  return {
+    posts: result.rows,
+    total: result.count,
+    page: parseInt(page),
+    limit: parseInt(limit),
+  };
 };
 
-// 태그로 게시글 검색
-
+// 태그로 게시글 검색 (페이지네이션 반환 형식 통일)
 exports.findPostsByTag = async (tagName, limit, offset) => {
-  return await TravelPost.findAndCountAll({
+  const result = await TravelPost.findAndCountAll({
     where: { is_deleted: false },
     include: [
       {
@@ -196,6 +232,67 @@ exports.findPostsByTag = async (tagName, limit, offset) => {
     offset,
     distinct: true,
   });
+
+  return result;
+};
+
+// ===== Tag 관련 =====
+
+/**
+ * 게시글의 태그 목록 조회
+ */
+exports.getTagsByPost = async (postId) => {
+  const post = await postRepository.findPostById(postId);
+  if (!post) {
+    throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  return await postRepository.findTagsByPostId(postId);
+};
+
+/**
+ * 게시글에 태그 추가
+ */
+exports.addTagToPost = async (postId, tagName) => {
+  // 게시글 존재 확인
+  const post = await postRepository.findPostById(postId);
+  if (!post) {
+    throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  // 태그 생성 또는 조회
+  const tag = await postRepository.findOrCreateTag(tagName);
+
+  // 이미 연결된 태그인지 확인
+  const existingPostTag = await postRepository.findPostTag(postId, tag.id);
+  if (existingPostTag) {
+    throw { statusCode: 400, message: "이미 추가된 태그입니다." };
+  }
+
+  // 게시글에 태그 연결
+  await postRepository.addTagToPost(postId, tag.id);
+
+  return tag;
+};
+
+/**
+ * 게시글에서 태그 제거
+ */
+exports.removeTagFromPost = async (postId, tagId) => {
+  // 게시글 존재 확인
+  const post = await postRepository.findPostById(postId);
+  if (!post) {
+    throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  // 태그 연결 제거
+  const deleted = await postRepository.removeTagFromPost(postId, tagId);
+
+  if (deleted === 0) {
+    throw { statusCode: 404, message: "연결된 태그를 찾을 수 없습니다." };
+  }
+
+  return { message: "태그가 제거되었습니다." };
 };
 
 // ===== PostImage 관련 =====
