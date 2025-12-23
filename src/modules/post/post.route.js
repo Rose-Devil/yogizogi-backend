@@ -7,13 +7,14 @@ const postController = require("./post.controller");
 const upload = null; // TODO: 업로드 미들웨어 구현 필요
 
 // ===== 게시글 CRUD =====
-router.get("/", postController.getPosts); // 목록 조회
+// 구체적인 라우트를 먼저 정의 (동적 라우트보다 위에)
 router.get("/popular", postController.getPopularPosts); // 인기 게시글
-router.get('/region/"region', postController.getPostsByRegion); // 지역별 게시글
+router.get("/region/:region", postController.getPostsByRegion); // 지역별 게시글
+router.get("/", postController.getPosts); // 목록 조회
+router.post("/", postController.createPost); // 작성
 router.get("/:id", postController.getPostById); // 상세 조회
-router.get("/", postController.createPost); // 작성
-router.get("/:id", postController.updatePost); // 수정
-router.get("/:id", postController.deletePost); // 삭제
+router.put("/:id", postController.updatePost); // 수정
+router.delete("/:id", postController.deletePost); // 삭제
 
 // ===== 이미지 관리 =====
 // TODO: upload 미들웨어 구현 후 주석 해제

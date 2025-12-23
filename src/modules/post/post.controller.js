@@ -75,12 +75,21 @@ exports.deletePost = async (req, res, next) => {
 };
 
 /**
- * 인기 게시글 조회
+ * 인기 게시글 조회 (페이지네이션)
  */
 exports.getPopularPosts = async (req, res, next) => {
   try {
-    const posts = await postService.getPopularPosts(req.query.limit);
-    return success(res, posts, "인기 게시글 조회 성공");
+    const result = await postService.getPopularPosts(req.query);
+    return paginated(
+      res,
+      result.posts,
+      {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      },
+      "인기 게시글 조회 성공"
+    );
   } catch (err) {
     next(err);
   }

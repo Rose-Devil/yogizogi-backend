@@ -2,11 +2,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
-const { config } = require("./config/env");
 
-// Swagger
-const swaggerUi = require("swagger-ui-express");
-const swaggerSpec = require("./swagger");
 
 // Middleware
 const { errorHandler } = require("./common/middleware/errorHandler");
@@ -15,6 +11,7 @@ const { errorHandler } = require("./common/middleware/errorHandler");
 const authRouter = require("./modules/auth/auth.route");
 const postRouters = require("./modules/post/post.route");
 const userRouter = require("./modules/user/user.route");
+// const likeRouter = require("./modules/post/postLike.route");
 
 const app = express();
 
@@ -30,11 +27,12 @@ app.use(
   })
 );
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// API 라우터
 
 app.use("/api/auth", authRouter);
 app.use("/api/posts", postRouters);
 app.use("/api/user", userRouter);
+// app.use("/api/like", likeRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Yogizogi Backend API" });

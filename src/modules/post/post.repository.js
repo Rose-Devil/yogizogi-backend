@@ -101,10 +101,10 @@ exports.incrementViewCount = async (id) => {
 };
 
 /**
- * 인기 게시글 조회
+ * 인기 게시글 조회 (페이지네이션 지원)
  */
-exports.findPopularPosts = async (limit) => {
-  return await TravelPost.findAll({
+exports.findPopularPosts = async (limit, offset) => {
+  return await TravelPost.findAndCountAll({
     where: { is_deleted: false },
     include: [
       {
@@ -115,12 +115,20 @@ exports.findPopularPosts = async (limit) => {
         order: [["sort_order", "ASC"]],
         limit: 1,
       },
+      {
+        model: Tag,
+        as: "tags",
+        attributes: ["id", "name"],
+        through: { attributes: [] },
+      },
     ],
     order: [
       ["like_count", "DESC"],
       ["created_at", "DESC"],
     ],
     limit,
+    offset,
+    distinct: true,
   });
 };
 
@@ -137,6 +145,12 @@ exports.findPostsByRegion = async (region, limit, offset) => {
         attributes: ["id", "image_url", "sort_order"],
         separate: true,
         order: [["sort_order", "ASC"]],
+      },
+      {
+        model: Tag,
+        as: "tags",
+        attributes: ["id", "name"],
+        through: { attributes: [] },
       },
     ],
     order: [["created_at", "DESC"]],
@@ -248,5 +262,14 @@ exports.findTagsByPostId = async (postId) => {
         through: { attributes: [] },
       },
     ],
+  });
+};
+
+/**
+ * 게시글-태그 연결 확인
+ */
+exports.findPostTag = async (postId, tagId) => {
+  return await PostTag.findOne({
+    where: { post_id: postId, tag_id: tagId },
   });
 };
