@@ -3,10 +3,6 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 
-// Swagger
-const swaggerUi = require("swagger-ui-express");
-const swaggerSpec = require("./swagger");
-
 // Middleware
 const { errorHandler } = require("./common/middleware/errorHandler");
 
@@ -14,6 +10,7 @@ const { errorHandler } = require("./common/middleware/errorHandler");
 const authRouter = require("./modules/auth/auth.route");
 const postRouters = require("./modules/post/post.route");
 const userRouter = require("./modules/user/user.route");
+// const likeRouter = require("./modules/post/postLike.route");
 
 const app = express();
 
@@ -30,13 +27,11 @@ app.use(
   })
 );
 
-// Swagger UI
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
 // API 라우터
 app.use("/api/auth", authRouter);
 app.use("/api/posts", postRouters);
 app.use("/api/user", userRouter);
+// app.use("/api/like", likeRouter);
 
 // 기본 라우트
 app.get("/", (req, res) => {
