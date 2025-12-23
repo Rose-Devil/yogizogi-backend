@@ -48,12 +48,13 @@ exports.removeLike = async (req, res, next) => {
 };
 
 /**
- * 좋아요 개수 조회
+ * 좋아요 개수 조회 (선택적으로 사용자 좋아요 여부도 반환)
  */
 exports.getLikeCount = async (req, res, next) => {
   try {
     const postId = req.params.id;
-    const result = await likeService.getLikeCount(postId);
+    const userId = req.query.userId ? parseInt(req.query.userId) : null; // 쿼리 파라미터로 userId 받기
+    const result = await likeService.getLikeCount(postId, userId);
     return success(res, result, "좋아요 개수 조회 성공");
   } catch (err) {
     next(err);

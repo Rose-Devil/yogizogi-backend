@@ -52,11 +52,17 @@ exports.removeLike = async (userId, postId) => {
 };
 
 /**
- * 좋아요 개수 조회
+ * 좋아요 개수 조회 (선택적으로 사용자 좋아요 여부도 반환)
  */
-exports.getLikeCount = async (postId) => {
+exports.getLikeCount = async (postId, userId = null) => {
   const likeCount = await likeRepository.countLikesByPost(postId);
-  return {
-    likeCount,
-  };
+  const result = { likeCount };
+
+  // userId가 제공되면 해당 사용자가 좋아요 눌렀는지도 확인
+  if (userId) {
+    const userLike = await likeRepository.findUserLike(userId, postId);
+    result.isLiked = !!userLike;
+  }
+
+  return result;
 };
