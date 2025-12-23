@@ -1,7 +1,7 @@
 // postLike 모델
 
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../config/db");
+const { sequelize } = require("../../config/db");
 
 // 좋아요 정보
 const PostLike = sequelize.define(
