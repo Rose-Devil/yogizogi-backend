@@ -18,17 +18,16 @@ function authGuard(req, res, next) {
     const decoded = verifyToken(token);
 
     // access만 허용 (refresh로 API 호출 방지)
-    if (decoded.typ && decoded.typ !== "access") {
+    if (decoded.typ !== "access") {
       return res.status(401).json({ message: "Access Token이 아닙니다." });
     }
 
-    // ✅ 호환성: 기존 코드(req.id) + 다른 브랜치 코드(req.user.id) 둘 다 지원
     req.id = decoded.id;
     req.user = { id: decoded.id };
     req.token = token;
 
     return next();
-  } catch (e) {
+  } catch {
     return res.status(401).json({ message: "토큰이 유효하지 않습니다." });
   }
 }
