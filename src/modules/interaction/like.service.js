@@ -1,4 +1,6 @@
 // 좋아요 서비스
+const likeRepository = require("./like.repository");
+const { error } = require("../../common/utils/response");
 
 const likeRepository = require("./like.repository");
 

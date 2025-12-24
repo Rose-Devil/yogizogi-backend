@@ -1,4 +1,6 @@
 // 좋아요 컨트롤러
+const likeService = require("./like.service");
+const { success } = require("../../common/utils/response");
 
 const likeService = require("./like.service");
 const { success } = require("../../common/utils/response");

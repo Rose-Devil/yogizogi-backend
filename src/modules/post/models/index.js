@@ -4,6 +4,7 @@ const TravelPost = require("../travelPost.model");
 const PostImage = require("../postImage.model");
 const Tag = require("../tag.model");
 const PostTag = require("../postTag.model");
+const PostLike = require("../postLike.model");
 
 // 모델 관계 설정
 TravelPost.hasMany(PostImage, {
@@ -30,11 +31,22 @@ Tag.belongsToMany(TravelPost, {
   as: "posts",
 });
 
+TravelPost.hasMany(PostLike, {
+  foreignKey: "post_id",
+  as: "likes",
+});
+
+PostLike.belongsTo(TravelPost, {
+  foreignKey: "post_id",
+  as: "post",
+});
+
 module.exports = {
   TravelPost,
   PostImage,
   Tag,
   PostTag,
+  PostLike,
 };
 
 
