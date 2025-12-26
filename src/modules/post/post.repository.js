@@ -33,6 +33,61 @@ exports.findAllPosts = async (where, order, limit, offset) => {
 };
 
 /**
+ * 게시글 목록 조회 (Cursor 기반 페이지네이션)
+ * cursor는 마지막 게시글의 created_at (ISO 문자열 또는 timestamp)
+ */
+exports.findAllPostsByCursor = async (where, order, limit, cursor) => {
+  // cursor가 있으면 where 조건에 추가 (created_at 기준)
+  if (cursor) {
+    // cursor는 ISO 문자열이거나 timestamp
+    const cursorDate = cursor instanceof Date ? cursor : new Date(cursor);
+    where.created_at = { [Op.lt]: cursorDate };
+  }
+
+  // limit + 1로 조회해서 다음 페이지 존재 여부 확인
+  const posts = await TravelPost.findAll({
+    where,
+    include: [
+      {
+        model: PostImage,
+        as: "images",
+        attributes: ["id", "image_url", "sort_order"],
+        separate: true,
+        order: [["sort_order", "ASC"]],
+      },
+      {
+        model: Tag,
+        as: "tags",
+        attributes: ["id", "name"],
+        through: { attributes: [] },
+      },
+    ],
+    order,
+    limit: limit + 1, // 하나 더 가져와서 다음 페이지 여부 확인
+    distinct: true,
+  });
+
+  // 다음 페이지 존재 여부 확인
+  const hasNextPage = posts.length > limit;
+  if (hasNextPage) {
+    posts.pop(); // 마지막 하나 제거
+  }
+
+  // 다음 cursor 계산 (마지막 게시글의 created_at)
+  let nextCursor = null;
+  if (posts.length > 0) {
+    const lastPost = posts[posts.length - 1];
+    nextCursor = lastPost.created_at.toISOString();
+  }
+
+  return {
+    posts,
+    hasNextPage,
+    nextCursor,
+  };
+};
+
+/**
  * 게시글 상세 조회
  */
 exports.findPostById = async (id) => {

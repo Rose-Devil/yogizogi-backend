@@ -4,11 +4,10 @@ const postRepository = require("./post.repository");
 const { TravelPost, PostImage, Tag } = require("./models");
 const { Op } = require("sequelize");
 
-// 게시글 목록 조회
+// 게시글 목록 조회 (Cursor 기반 페이지네이션)
 exports.getPosts = async (queryParams) => {
-  const { page = 1, limit = 10, region, sort = "lastes", tag } = queryParams;
+  const { cursor, limit = 10, region, sort = "latest", tag } = queryParams;
 
-  const offset = (page - 1) * limit;
   const where = { is_deleted: false };
 
   // 지역 필터
@@ -30,8 +29,9 @@ exports.getPosts = async (queryParams) => {
     ];
   }
 
-  // 태그 검색
+  // 태그 검색 (태그는 아직 cursor 기반 미지원, 기존 방식 유지)
   if (tag) {
+    const offset = cursor ? 0 : 0; // 태그 검색은 일단 기존 방식
     return await postRepository.findPostsByTag(
       tag,
       parseInt(limit),
@@ -39,17 +39,18 @@ exports.getPosts = async (queryParams) => {
     );
   }
 
-  const result = await postRepository.findAllPosts(
+  // Cursor 기반 조회
+  const result = await postRepository.findAllPostsByCursor(
     where,
     order,
     parseInt(limit),
-    parseInt(offset)
+    cursor || null
   );
 
   return {
-    posts: result.rows,
-    total: result.count,
-    page: parseInt(page),
+    posts: result.posts,
+    hasNextPage: result.hasNextPage,
+    nextCursor: result.nextCursor,
     limit: parseInt(limit),
   };
 };
