@@ -5,22 +5,23 @@ const { success, error, paginated } = require("../../common/utils/response");
 const fs = require("fs").promises;
 
 /**
- * 게시글 목록 조회
+ * 게시글 목록 조회 (Cursor 기반 페이지네이션)
  */
 exports.getPosts = async (req, res, next) => {
   try {
     const result = await postService.getPosts(req.query);
 
-    return paginated(
-      res,
-      result.posts,
-      {
-        total: result.total,
-        page: result.page,
+    // Cursor 기반 응답 형식
+    return res.status(200).json({
+      success: true,
+      message: "게시글 목록 조회 성공",
+      data: result.posts,
+      cursorPagination: {
+        hasNextPage: result.hasNextPage,
+        nextCursor: result.nextCursor,
         limit: result.limit,
       },
-      "게시글 목록 조회 성공"
-    );
+    });
   } catch (err) {
     next(err);
   }
