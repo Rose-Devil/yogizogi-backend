@@ -29,6 +29,7 @@ app.use(
 
 app.use("/api/auth", authRouter);
 app.use("/api/posts", postRouters);
+app.use("/api", require("./modules/interaction/comment.route")); // 댓글 라우터 추가
 app.use("/api/user", userRouter);
 app.use("/api", likeRouter);
 

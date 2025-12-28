@@ -112,7 +112,16 @@ exports.createPost = async (postData) => {
   }
 
   // 태그 포함해서 다시 조회
-  return await postRepository.findPostById(newPost.id);
+  const createdPost = await postRepository.findPostById(newPost.id);
+
+  // AI 댓글 생성 트리거 (비동기 처리)
+  // 오류가 발생해도 게시글 생성은 성공으로 처리하기 위해 await 하지 않거나 catch 처리
+  const commentService = require("../interaction/comment.service");
+  commentService.generateAIComment(createdPost.id).catch((err) => {
+    console.error("AI 댓글 생성 트리거 실패:", err);
+  });
+
+  return createdPost;
 };
 
 // 게시글 수정

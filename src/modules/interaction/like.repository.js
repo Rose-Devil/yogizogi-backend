@@ -2,7 +2,7 @@
 const { sequelize } = require("../../config/db");
 const { TravelPost, PostLike } = require("../post/models");
 
-const PostLike = require("../post/postLike.model");
+
 
 /**
  * 좋아요 추가

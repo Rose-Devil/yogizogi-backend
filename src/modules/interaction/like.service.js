@@ -2,7 +2,7 @@
 const likeRepository = require("./like.repository");
 const { error } = require("../../common/utils/response");
 
-const likeRepository = require("./like.repository");
+
 
 /**
  * 좋아요 추가
