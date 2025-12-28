@@ -1,0 +1,2 @@
+// ChecklistRoom 모델
+
