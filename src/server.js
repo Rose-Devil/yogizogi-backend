@@ -4,13 +4,14 @@ const { config } = require("./config/env");
 const { checkDbConnection } = require("./config/db");
 
 (async () => {
-  const port = config.host.port;
+  const { address, port } = config.host;
 
   try {
     await checkDbConnection();
 
-    app.listen(port, () => {
-      console.log(`🚀 Server listening on http://localhost:${port}`);
+    app.listen(port, address, () => {
+      const displayAddress = address === "0.0.0.0" ? "localhost" : address;
+      console.log(`🚀 Server listening on http://${displayAddress}:${port}`);
     });
   } catch (error) {
     console.error("❌ 서버 시작 실패:", error);

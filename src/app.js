@@ -21,9 +21,24 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // CORS (쿠키 사용 시 credentials 필수)
+// 프록시 연동 안정성을 위해 localhost와 127.0.0.1 모두 허용
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: (origin, callback) => {
+      // origin이 없는 경우(같은 출처 요청) 또는 허용된 출처인 경우
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
   })
 );

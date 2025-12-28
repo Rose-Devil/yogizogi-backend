@@ -47,6 +47,18 @@ const updateNickname = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};// 프로필 전체 수정
+const updateProfile = async (req, res) => {
+  const userId = req.user.id;
+  const { nickname, profileImage } = req.body;
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { nickname, profileImage },
+    { new: true }
+  );
+
+  res.json(updatedUser);
 };
 
 module.exports = {
@@ -54,4 +66,5 @@ module.exports = {
   deleteMyPost,
   deleteMyComment,
   updateNickname,
+  updateProfile
 };

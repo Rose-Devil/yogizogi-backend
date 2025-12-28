@@ -12,9 +12,12 @@ function required(key, defaultValue = undefined) {
 
 // PORT 우선순위: HOST_PORT > PORT > 9090
 const portFromEnv = process.env.HOST_PORT ?? process.env.PORT ?? 9090;
+// HOST 주소: HOST > 기본값(0.0.0.0 - 모든 인터페이스에서 수신)
+const hostFromEnv = process.env.HOST ?? "0.0.0.0";
 
 const config = {
   host: {
+    address: hostFromEnv,
     port: parseInt(portFromEnv, 10),
   },
 
