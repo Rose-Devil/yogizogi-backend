@@ -28,4 +28,11 @@ async function createUser({ email, passwordHash, nickname, url }) {
   return result.insertId;
 }
 
-module.exports = { findByEmail, findById, createUser };
+async function updateProfileImageUrl(id, url) {
+  await pool.query("UPDATE `User` SET profile_image_url = ? WHERE id = ?", [
+    url ?? null,
+    id,
+  ]);
+}
+
+module.exports = { findByEmail, findById, createUser, updateProfileImageUrl };

@@ -2,6 +2,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const path = require("path");
 
 // Middleware
 const { errorHandler } = require("./common/middleware/errorHandler");
@@ -17,6 +18,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Local uploads (e.g. post images, profile images)
+app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
 app.use(
   cors({

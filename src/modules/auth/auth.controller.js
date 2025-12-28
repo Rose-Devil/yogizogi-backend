@@ -1,5 +1,6 @@
 // src/modules/auth/auth.controller.js
 const authService = require("./auth.service");
+const fs = require("fs").promises;
 
 // refresh 쿠키 옵션(3일)
 const REFRESH_COOKIE_NAME = "refresh_token";
@@ -49,6 +50,23 @@ async function me(req, res, next) {
   }
 }
 
+async function updateProfileImage(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "이미지 파일이 필요합니다." });
+    }
+
+    const imageUrl = `/uploads/profiles/${req.file.filename}`;
+    const result = await authService.updateProfileImage(req.id, imageUrl);
+    return res.status(result.status).json(result.body);
+  } catch (e) {
+    if (req.file) {
+      await fs.unlink(req.file.path).catch(() => {});
+    }
+    next(e);
+  }
+}
+
 // Silent Refresh용
 async function refresh(req, res, next) {
   try {
@@ -71,4 +89,4 @@ async function logout(req, res, next) {
   }
 }
 
-module.exports = { signup, login, me, refresh, logout };
+module.exports = { signup, login, me, updateProfileImage, refresh, logout };

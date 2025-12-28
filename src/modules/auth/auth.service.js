@@ -97,6 +97,34 @@ async function me(userId) {
         email: user.email,
         nickname: user.nickname,
         url: user.url ?? null,
+        image: user.url ?? null,
+      },
+    },
+  };
+}
+
+async function updateProfileImage(userId, url) {
+  await authRepository.updateProfileImageUrl(userId, url);
+  const user = await authRepository.findById(userId);
+
+  if (!user) {
+    return {
+      ok: false,
+      status: 401,
+      body: { message: "?ъ슜?먮? 李얠쓣 ???놁쓬" },
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+        url: user.url ?? null,
+        image: user.url ?? null,
       },
     },
   };
@@ -154,4 +182,4 @@ async function logout() {
   return { ok: true, status: 200, body: { message: "logout ok" } };
 }
 
-module.exports = { signup, login, me, refresh, logout };
+module.exports = { signup, login, me, updateProfileImage, refresh, logout };

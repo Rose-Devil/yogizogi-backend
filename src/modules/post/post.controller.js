@@ -3,6 +3,34 @@
 const postService = require("./post.service");
 const { success, error, paginated } = require("../../common/utils/response");
 const fs = require("fs").promises;
+const path = require("path");
+
+function parseTags(raw) {
+  if (raw == null) return undefined;
+  if (Array.isArray(raw)) return raw;
+
+  const text = String(raw).trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+
+  return text
+    .split(/[\s,]+/)
+    .map((t) => t.replace(/^#/, "").trim())
+    .filter(Boolean);
+}
+
+function collectUploadedFiles(req) {
+  if (req.file) return [req.file];
+  if (Array.isArray(req.files)) return req.files;
+  if (req.files && typeof req.files === "object") {
+    return Object.values(req.files).flat();
+  }
+  return [];
+}
 
 /**
  * 게시글 목록 조회 (Cursor 기반 페이지네이션)
@@ -23,6 +51,9 @@ exports.getPosts = async (req, res, next) => {
       },
     });
   } catch (err) {
+    if (req.files && Array.isArray(req.files)) {
+      await Promise.allSettled(req.files.map((f) => fs.unlink(f.path)));
+    }
     next(err);
   }
 };
@@ -35,6 +66,10 @@ exports.getPostById = async (req, res, next) => {
     const post = await postService.getPostById(req.params.id);
     return success(res, post, "게시글 조회 성공");
   } catch (err) {
+    const files = collectUploadedFiles(req);
+    if (files.length > 0) {
+      await Promise.allSettled(files.map((f) => fs.unlink(f.path)));
+    }
     next(err);
   }
 };
@@ -44,7 +79,28 @@ exports.getPostById = async (req, res, next) => {
  */
 exports.createPost = async (req, res, next) => {
   try {
-    const newPost = await postService.createPost(req.body);
+    const thumbnailFile = req.files?.thumbnail?.[0] ?? null;
+    const imageFiles = req.files?.images ?? [];
+
+    const thumbnailUrl = thumbnailFile
+      ? `/uploads/posts/${thumbnailFile.filename}`
+      : null;
+    const imageUrls = imageFiles.map(
+      (file) => `/uploads/posts/${file.filename}`
+    );
+
+    const body = {
+      ...req.body,
+      tags: parseTags(req.body.tags),
+    };
+
+    const newPost = await postService.createPost(
+      {
+        ...body,
+        thumbnail_url: thumbnailUrl ?? body.thumbnail_url,
+      },
+      thumbnailUrl ? [thumbnailUrl, ...imageUrls] : imageUrls
+    );
     return success(res, newPost, "게시글 작성 완료", 201);
   } catch (err) {
     next(err);
@@ -170,9 +226,8 @@ exports.deleteImage = async (req, res, next) => {
     const deletedImage = await postService.deleteImage(req.params.id);
 
     // 파일 시스템에서 삭제
-    const filePath = `./uploads/posts/${deletedImage.image_url
-      .split("/")
-      .pop()}`;
+    const filename = deletedImage.image_url.split("/").pop();
+    const filePath = path.resolve(__dirname, "../../../uploads/posts", filename);
     await fs.unlink(filePath).catch(() => {});
 
     return success(res, null, "이미지 삭제 완료");
