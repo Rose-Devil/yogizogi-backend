@@ -10,6 +10,7 @@ const { errorHandler } = require("./common/middleware/errorHandler");
 // Routers
 const authRouter = require("./modules/auth/auth.route");
 const postRouters = require("./modules/post/post.route");
+const checklistRouter = require("./modules/checklist/checklist.route");
 const userRouter = require("./modules/user/user.route");
 const likeRouter = require("./modules/interaction/like.route");
 
@@ -32,6 +33,7 @@ app.use(
 // API 라우터
 
 app.use("/api/auth", authRouter);
+app.use("/api/checklists", checklistRouter);
 app.use("/api/posts", postRouters);
 app.use("/api", require("./modules/interaction/comment.route")); // 댓글 라우터 추가
 app.use("/api/user", userRouter);
