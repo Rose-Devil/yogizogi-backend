@@ -11,21 +11,21 @@ const { pool } = require("../../config/db.js");
  * @param {string} nickname    - 닉네임
  * @param {string} bio         - 소개글
  */
-const updateProfileSettings = async (userId, name, nickname, bio) => {
+const updateProfileSettings = async (userId, email, nickname, bio) => {
   await pool.query(
     `
-    UPDATE users
-    SET name = ?, nickname = ?, bio = ?
+    UPDATE User
+    SET email = ?, nickname = ?, bio = ?
     WHERE id = ?
     `,
-    [name, nickname, bio, userId]
+    [email, nickname, bio, userId]
   );
 
   // 변경된 값 반환
   const [rows] = await pool.query(
     `
-    SELECT id, name, nickname, bio
-    FROM users
+    SELECT id, email, nickname, bio
+    FROM User
     WHERE id = ?
     `,
     [userId]
