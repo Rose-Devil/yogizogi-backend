@@ -3,8 +3,12 @@
 const { pool } = require("../../config/db.js");
 
 const findProfile = async (userid) => {
+  // auth.repository.js uses `User` and selects nickname/profile_image_url. 
+  // usersSettings.model.js uses `users`. 
+  // Assuming `id` is PK. 
+  // We'll select nickname and profile_image to match CommentService expectation.
   const [rows] = await pool.query(
-    "SELECT id, username, email FROM users WHERE id = ?",
+    "SELECT id, nickname, profile_image_url as profile_image FROM `User` WHERE id = ?",
     [userid]
   );
   return rows[0];

@@ -3,15 +3,21 @@
 const express = require("express");
 const router = express.Router();
 const postController = require("./post.controller");
-// const upload = require('../../common/middleware/') 업로드 파일 없음
-const upload = null; // TODO: 업로드 미들웨어 구현 필요
+const { postImagesUpload } = require("../../common/middleware/upload");
 
 // ===== 게시글 CRUD =====
 // 구체적인 라우트를 먼저 정의 (동적 라우트보다 위에)
 router.get("/popular", postController.getPopularPosts); // 인기 게시글
 router.get("/region/:region", postController.getPostsByRegion); // 지역별 게시글
 router.get("/", postController.getPosts); // 목록 조회
-router.post("/", postController.createPost); // 작성
+router.post(
+  "/",
+  postImagesUpload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "images", maxCount: 6 },
+  ]),
+  postController.createPost
+); // 작성 (+썸네일/+이미지)
 router.get("/:id", postController.getPostById); // 상세 조회
 router.put(
   "/:id",
@@ -26,7 +32,7 @@ router.delete("/:id", postController.deletePost); // 삭제
 // ===== 이미지 관리 =====
 // TODO: upload 미들웨어 구현 후 주석 해제
 // router.post("/images", upload.single("image"), postController.uploadImage); // 이미지 업로드
-router.post("/images", postController.uploadImage); // 이미지 업로드 (임시)
+router.post("/images", postImagesUpload.single("image"), postController.uploadImage); // 이미지 업로드
 router.get("/:postId/images", postController.getImagesByPost); //이미지 목록
 router.delete("/images/:id", postController.deleteImage); // 이미지 삭제
 

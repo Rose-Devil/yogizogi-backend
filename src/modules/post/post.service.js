@@ -84,7 +84,7 @@ exports.getPostById = async (id) => {
 
 // 게시글 작성
 
-exports.createPost = async (postData) => {
+exports.createPost = async (postData, imageUrls = []) => {
   const {
     author_id,
     title,
@@ -114,7 +114,9 @@ exports.createPost = async (postData) => {
     start_date,
     end_date,
     people_count,
-    thumbnail_url,
+    thumbnail_url:
+      thumbnail_url ??
+      (Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls[0] : null),
   });
 
   // 태그 처리
@@ -125,8 +127,27 @@ exports.createPost = async (postData) => {
     }
   }
 
+  if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+    for (let i = 0; i < imageUrls.length; i += 1) {
+      await postRepository.createPostImage({
+        post_id: newPost.id,
+        image_url: imageUrls[i],
+        sort_order: i,
+      });
+    }
+  }
+
   // 태그 포함해서 다시 조회
-  return await postRepository.findPostById(newPost.id);
+  const createdPost = await postRepository.findPostById(newPost.id);
+
+  // AI 댓글 생성 트리거 (비동기 처리)
+  // 오류가 발생해도 게시글 생성은 성공으로 처리하기 위해 await 하지 않거나 catch 처리
+  const commentService = require("../interaction/comment.service");
+  commentService.generateAIComment(createdPost.id).catch((err) => {
+    console.error("AI 댓글 생성 트리거 실패:", err);
+  });
+
+  return createdPost;
 };
 
 // 게시글 수정
@@ -329,3 +350,45 @@ exports.removeTagFromPost = async (postId, tagId) => {
 };
 
 // ===== PostImage 관련 =====
+
+exports.uploadImage = async (imageData) => {
+  const { post_id, image_url, sort_order } = imageData || {};
+
+  if (!post_id || !image_url) {
+    throw { statusCode: 400, message: "post_id, image_url은 필수입니다." };
+  }
+
+  const post = await postRepository.findPostById(post_id);
+  if (!post) {
+    throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  const created = await postRepository.createPostImage({
+    post_id,
+    image_url,
+    sort_order: sort_order ?? 0,
+  });
+
+  if (!post.thumbnail_url) {
+    await postRepository.updatePost(post_id, { thumbnail_url: image_url });
+  }
+
+  return created;
+};
+
+exports.getImagesByPost = async (postId) => {
+  const post = await postRepository.findPostById(postId);
+  if (!post) {
+    throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  return await postRepository.findImagesByPostId(postId);
+};
+
+exports.deleteImage = async (id) => {
+  const deleted = await postRepository.deleteImage(id);
+  if (!deleted) {
+    throw { statusCode: 404, message: "이미지를 찾을 수 없습니다." };
+  }
+  return deleted;
+};

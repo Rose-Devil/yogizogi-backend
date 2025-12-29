@@ -1,6 +1,8 @@
 // 좋아요 서비스
-
 const likeRepository = require("./like.repository");
+const { error } = require("../../common/utils/response");
+
+
 
 /**
  * 좋아요 추가

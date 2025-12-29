@@ -1,2 +1,144 @@
-// 댓글 서비스
+const Comment = require("./comment.model");
+const User = require("../user/user.model");
+const TravelPost = require("../post/travelPost.model");
+const aiCommentService = require("./ai-comment.service");
 
+class CommentService {
+    /**
+     * 댓글 생성
+     * @param {number} postId
+     * @param {number} userId
+     * @param {string} content
+     * @param {number|null} parentId
+     */
+    async createComment(postId, userId, content, parentId = null) {
+        const post = await TravelPost.findByPk(postId);
+        if (!post) throw new Error("게시글을 찾을 수 없습니다.");
+
+        if (parentId) {
+            const parentComment = await Comment.findByPk(parentId);
+            if (!parentComment) throw new Error("부모 댓글을 찾을 수 없습니다.");
+            if (parentComment.post_id !== parseInt(postId)) {
+                throw new Error("부모 댓글과 같은 게시글이어야 합니다.");
+            }
+        }
+
+        const comment = await Comment.create({
+            post_id: postId,
+            author_id: userId,
+            content,
+            parent_id: parentId,
+            is_ai: false,
+        });
+
+        // 게시글 댓글 수 업데이트
+        await post.increment("comment_count");
+
+        // 작성자 정보 포함하여 반환 (Manual Join)
+        const commentData = comment.toJSON();
+        try {
+            const author = await User.findProfile(userId);
+            commentData.author = author || { nickname: "Unknown" };
+        } catch (e) {
+            console.error("Error fetching author profile:", e);
+            commentData.author = { nickname: "Unknown" };
+        }
+
+        return commentData;
+    }
+
+    /**
+     * 계층형 댓글 목록 조회
+     * @param {number} postId
+     */
+    async getComments(postId) {
+        const comments = await Comment.findAll({
+            where: { post_id: postId },
+            order: [
+                ["created_at", "ASC"], // 먼저 작성된 순
+            ],
+        });
+
+        // 작성자 정보 매핑 (Manual Populate)
+        const authorIds = [...new Set(comments.map(c => c.author_id))];
+        const authors = {};
+
+        for (const id of authorIds) {
+            if (id === 1) { // AI or Admin fallback
+                authors[id] = { id: 1, nickname: "AI 여행 봇", profile_image: null };
+            } else {
+                try {
+                    const profile = await User.findProfile(id);
+                    authors[id] = profile;
+                } catch (e) {
+                    console.error(`Failed to fetch user ${id}`, e);
+                }
+            }
+        }
+
+        // 계층 구조로 변환
+        const rootComments = [];
+        const commentMap = {};
+
+        comments.forEach((c) => {
+            const commentJson = c.toJSON();
+            commentJson.author = authors[c.author_id] || { nickname: "알 수 없음" };
+            commentJson.replies = [];
+            commentMap[commentJson.id] = commentJson; // 참조 저장
+        });
+
+        comments.forEach((c) => {
+            const node = commentMap[c.id];
+            if (c.parent_id) {
+                if (commentMap[c.parent_id]) {
+                    commentMap[c.parent_id].replies.push(node);
+                } else {
+                    // 부모가 없으면(삭제됨?) 루트로 취급 혹은 무시
+                    rootComments.push(node);
+                }
+            } else {
+                rootComments.push(node);
+            }
+        });
+
+        return rootComments;
+    }
+
+    /**
+     * AI 댓글 생성 및 저장
+     * @param {number} postId
+     */
+    async generateAIComment(postId) {
+        try {
+            // Post.author is just an ID now since we don't have association. 
+            // Need to fetch author if needed, but Generate AI Comment only needs content.
+            const post = await TravelPost.findByPk(postId);
+
+            if (!post) return;
+
+            const aiUserId = 1;
+
+            const generatedContent = await aiCommentService.generateComment(
+                post.content,
+                post.title
+            );
+
+            if (!generatedContent) return;
+
+            const comment = await Comment.create({
+                post_id: postId,
+                author_id: aiUserId, // 임시: 1번 유저(관리자)가 AI 역할
+                content: generatedContent,
+                is_ai: true,
+            });
+
+            await post.increment("comment_count");
+            console.log(`✅ [Post ${postId}] AI 댓글 생성 완료: ${comment.id}`);
+
+        } catch (error) {
+            console.error("AI 댓글 생성 중 오류:", error);
+        }
+    }
+}
+
+module.exports = new CommentService();

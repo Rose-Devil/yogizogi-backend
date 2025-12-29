@@ -56,6 +56,10 @@ const config = {
     password: process.env.DB_PASSWORD ?? "",
     name: required("DB_NAME"),
   },
+
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
 };
 
 module.exports = { config };
