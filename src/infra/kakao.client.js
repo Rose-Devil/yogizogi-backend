@@ -1,26 +1,23 @@
-﻿import { KAKAO_REST_API_KEY } from '../config/env.js'
-
-const ENDPOINT = 'https://dapi.kakao.com/v2/local/search/keyword.json'
-
-export async function fetchKakaoPlaces(query) {
+async function fetchKakaoPlaces(query) {
   if (!query) {
     const error = new Error('query 파라미터가 필요합니다.')
     error.status = 400
     throw error
   }
 
-  if (!KAKAO_REST_API_KEY) {
+  const apiKey = process.env.KAKAO_REST_API_KEY
+  if (!apiKey) {
     const error = new Error('KAKAO_REST_API_KEY가 설정되지 않았습니다.')
     error.status = 500
     throw error
   }
 
-  const url = new URL(ENDPOINT)
+  const url = new URL('https://dapi.kakao.com/v2/local/search/keyword.json')
   url.searchParams.set('query', query)
   url.searchParams.set('size', '15')
 
   const upstream = await fetch(url.toString(), {
-    headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` },
+    headers: { Authorization: `KakaoAK ${apiKey}` },
   })
 
   if (!upstream.ok) {
@@ -42,3 +39,5 @@ export async function fetchKakaoPlaces(query) {
     rating: Math.random() * 1 + 4,
   }))
 }
+
+module.exports = { fetchKakaoPlaces }
