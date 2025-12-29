@@ -56,9 +56,51 @@ exports.createPost = async (req, res, next) => {
  */
 exports.updatePost = async (req, res, next) => {
   try {
-    const updatedPost = await postService.updatePost(req.params.id, req.body);
+    console.log("게시글 수정 요청:", req.params.id);
+    console.log("req.body:", req.body);
+    console.log("req.files:", req.files);
+
+    const thumbnailFile = req.files?.thumbnail?.[0] ?? null;
+    const imageFiles = req.files?.images ?? [];
+
+    const thumbnailUrl = thumbnailFile
+      ? `/uploads/posts/${thumbnailFile.filename}`
+      : null;
+    const imageUrls = imageFiles.map(
+      (file) => `/uploads/posts/${file.filename}`
+    );
+
+    const body = {
+      ...req.body,
+      tags: parseTags(req.body.tags),
+    };
+
+    console.log("파싱된 body:", body);
+
+    // 이미지가 있으면 업데이트
+    const updateData = {
+      ...body,
+    };
+    if (thumbnailUrl) {
+      updateData.thumbnail_url = thumbnailUrl;
+    }
+
+    console.log("updateData:", updateData);
+    console.log("imageUrls:", imageUrls);
+
+    const updatedPost = await postService.updatePost(
+      req.params.id,
+      updateData,
+      imageUrls.length > 0 ? imageUrls : undefined
+    );
+    console.log("수정된 게시글:", updatedPost);
     return success(res, updatedPost, "게시글 수정 완료");
   } catch (err) {
+    console.error("게시글 수정 에러:", err);
+    const files = collectUploadedFiles(req);
+    if (files.length > 0) {
+      await Promise.allSettled(files.map((f) => fs.unlink(f.path)));
+    }
     next(err);
   }
 };

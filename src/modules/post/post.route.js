@@ -13,7 +13,14 @@ router.get("/region/:region", postController.getPostsByRegion); // 지역별 게
 router.get("/", postController.getPosts); // 목록 조회
 router.post("/", postController.createPost); // 작성
 router.get("/:id", postController.getPostById); // 상세 조회
-router.put("/:id", postController.updatePost); // 수정
+router.put(
+  "/:id",
+  postImagesUpload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "images", maxCount: 6 },
+  ]),
+  postController.updatePost
+); // 수정 (+썸네일/+이미지)
 router.delete("/:id", postController.deletePost); // 삭제
 
 // ===== 이미지 관리 =====

@@ -3,6 +3,7 @@
 const postRepository = require("./post.repository");
 const { TravelPost, PostImage, Tag } = require("./models");
 const { Op } = require("sequelize");
+const sequelize = require("../../config/db");
 
 // 게시글 목록 조회 (Cursor 기반 페이지네이션)
 exports.getPosts = async (queryParams) => {
@@ -18,7 +19,9 @@ exports.getPosts = async (queryParams) => {
   // 정렬
   let order = [["created_at", "DESC"]];
   if (sort === "popular") {
+    // 인기 게시글: 댓글 수를 우선으로, 그 다음 좋아요 수로 정렬
     order = [
+      ["comment_count", "DESC"],
       ["like_count", "DESC"],
       ["created_at", "DESC"],
     ];
@@ -37,6 +40,17 @@ exports.getPosts = async (queryParams) => {
       parseInt(limit),
       parseInt(offset)
     );
+  }
+
+  // 인기 게시글의 경우 cursor 사용하지 않음 (좋아요+댓글 수로 정렬하므로)
+  if (sort === "popular") {
+    const result = await postRepository.findAllPosts(where, order, parseInt(limit), 0);
+    return {
+      posts: result.rows,
+      hasNextPage: false, // 인기 게시글은 페이지네이션 없음
+      nextCursor: null,
+      limit: parseInt(limit),
+    };
   }
 
   // Cursor 기반 조회
@@ -116,7 +130,7 @@ exports.createPost = async (postData) => {
 };
 
 // 게시글 수정
-exports.updatePost = async (id, updateData) => {
+exports.updatePost = async (id, updateData, imageUrls = undefined) => {
   // 태그는 별도로 처리
   const tags = updateData.tags;
   delete updateData.tags;
@@ -133,6 +147,24 @@ exports.updatePost = async (id, updateData) => {
 
   if (!updatedPost) {
     throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  // 이미지 업데이트 (imageUrls가 제공된 경우)
+  if (imageUrls !== undefined && Array.isArray(imageUrls)) {
+    // 기존 이미지 모두 제거
+    const existingImages = await postRepository.findImagesByPostId(id);
+    for (const image of existingImages) {
+      await postRepository.deleteImage(image.id);
+    }
+
+    // 새 이미지 추가
+    for (let i = 0; i < imageUrls.length; i += 1) {
+      await postRepository.createPostImage({
+        post_id: id,
+        image_url: imageUrls[i],
+        sort_order: i,
+      });
+    }
   }
 
   // 태그 업데이트 (tags가 제공된 경우)
