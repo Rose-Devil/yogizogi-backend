@@ -3,6 +3,7 @@
 const postRepository = require("./post.repository");
 const { TravelPost, PostImage, Tag } = require("./models");
 const { Op } = require("sequelize");
+const { sequelize } = require("../../config/db");
 
 // 게시글 목록 조회 (Cursor 기반 페이지네이션)
 exports.getPosts = async (queryParams) => {
@@ -18,8 +19,9 @@ exports.getPosts = async (queryParams) => {
   // 정렬
   let order = [["created_at", "DESC"]];
   if (sort === "popular") {
+    // 인기 게시글은 댓글 수 기준으로 정렬 (offset 기반 페이지네이션 사용)
     order = [
-      ["like_count", "DESC"],
+      [sequelize.literal("comment_count"), "DESC"],
       ["created_at", "DESC"],
     ];
   } else if (sort === "views") {
@@ -39,7 +41,19 @@ exports.getPosts = async (queryParams) => {
     );
   }
 
-  // Cursor 기반 조회
+  // 인기 게시글은 offset 기반 페이지네이션 사용 (커스텀 정렬 때문)
+  if (sort === "popular") {
+    const offset = cursor ? 0 : 0; // 인기 게시글은 cursor를 offset으로 사용하지 않음
+    const result = await postRepository.findAllPosts(where, order, parseInt(limit), offset);
+    return {
+      posts: result.rows,
+      hasNextPage: false, // 인기 게시글은 offset 기반, 다음 페이지는 별도 처리 필요 시 추가
+      nextCursor: null,
+      limit: parseInt(limit),
+    };
+  }
+
+  // Cursor 기반 조회 (일반 게시글)
   const result = await postRepository.findAllPostsByCursor(
     where,
     order,
