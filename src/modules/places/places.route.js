@@ -1,9 +1,9 @@
-import { Router } from 'express'
-import { getAttractions, getKakaoPlaces } from './places.controller.js'
+const express = require('express')
+const { getAttractions, getKakaoPlaces } = require('./places.controller')
 
-const router = Router()
+const router = express.Router()
 
 router.get('/attractions', getAttractions)
 router.get('/kakao/places', getKakaoPlaces)
 
-export default router
+module.exports = router

@@ -13,6 +13,7 @@ const postRouters = require("./modules/post/post.route");
 const checklistRouter = require("./modules/checklist/checklist.route");
 const userRouter = require("./modules/user/user.route");
 const likeRouter = require("./modules/interaction/like.route");
+const placesRouter = require("./modules/places/places.route");
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/posts", postRouters);
 app.use("/api", require("./modules/interaction/comment.route")); // 댓글 라우터 추가
 app.use("/api/user", userRouter);
 app.use("/api", likeRouter);
+app.use("/api", placesRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Yogizogi Backend API" });

@@ -1,17 +1,20 @@
-﻿import { fetchKoreaTourPlaces } from '../../infra/koreaTourApi.client.js'
-import { fetchKakaoPlaces } from '../../infra/kakao.client.js'
+const { fetchKoreaTourPlaces } = require('../../infra/koreaTourApi.client')
+const { fetchKakaoPlaces } = require('../../infra/kakao.client')
 
-export async function getAttractions(req, res) {
+async function getAttractions(req, res) {
   const { lat, lng, type = 'attraction' } = req.query
 
-  if (!lat || !lng) {
+  const latNum = Number.parseFloat(lat)
+  const lngNum = Number.parseFloat(lng)
+
+  if (!lat || !lng || Number.isNaN(latNum) || Number.isNaN(lngNum)) {
     return res
       .status(400)
       .json({ success: false, data: [], error: '위도/경도 쿼리 파라미터가 필요합니다.' })
   }
 
   try {
-    const places = await fetchKoreaTourPlaces({ type })
+    const places = await fetchKoreaTourPlaces({ type, lat: latNum, lng: lngNum })
     return res.json({ success: true, data: places, error: null })
   } catch (error) {
     const status = error.status || 500
@@ -21,7 +24,7 @@ export async function getAttractions(req, res) {
   }
 }
 
-export async function getKakaoPlaces(req, res) {
+async function getKakaoPlaces(req, res) {
   const { query } = req.query
 
   try {
@@ -34,3 +37,5 @@ export async function getKakaoPlaces(req, res) {
     return res.status(status).json({ success: false, data: [], error: message })
   }
 }
+
+module.exports = { getAttractions, getKakaoPlaces }
