@@ -42,8 +42,10 @@ async function login(req, res, next) {
 }
 
 async function me(req, res, next) {
+  console.log("auth.controller.js의 me 실행");
   try {
     const result = await authService.me(req.id);
+    console.log("me 결과:", result);
     return res.status(result.status).json(result.body);
   } catch (e) {
     next(e);

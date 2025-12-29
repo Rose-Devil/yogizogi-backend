@@ -79,28 +79,63 @@ async function login({ email, password }) {
 
 // 로그인 유지(me): access로만 유저 정보 반환 (권장: token 응답 X)
 async function me(userId) {
-  const user = await authRepository.findById(userId);
-  if (!user) {
+  try {
+    // 사용자 정보 조회
+    const user = await authRepository.findById(userId);
+    if (!user) {
+      return {
+        ok: false,
+        status: 401,
+        body: { message: "사용자를 찾을 수 없음" },
+      };
+    }
+
+    // 내 여행기 목록 조회
+    const myTrips = await authRepository.findMyTravelPosts(userId);
+
+    // 게시글 통계 조회
+    const stats = await authRepository.getMyPostsStats(userId);
+
+    // 가입일 포맷팅 (YYYY-MM-DD)
+    const joinDate = user.created_at
+      ? new Date(user.created_at).toISOString().split("T")[0]
+      : "";
+
+    return {
+      ok: true,
+      status: 200,
+      body: {
+        user: {
+          id: user.id,
+          email: user.email,
+          nickname: user.nickname,
+          url: user.url ?? null,
+          image: user.url ?? null,
+          bio: user.bio ?? null,
+          joinDate: joinDate,
+        },
+        stats: {
+          postCount: parseInt(stats.post_count) || 0,
+          totalViews: parseInt(stats.total_views) || 0,
+        },
+        trips: myTrips.map((trip) => ({
+          id: trip.id,
+          title: trip.title,
+          location: trip.region,
+          views: trip.view_count,
+          createdAt: trip.created_at,
+          thumbnail: trip.thumbnail_url,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("me 서비스 에러:", error);
     return {
       ok: false,
-      status: 401,
-      body: { message: "사용자를 찾을 수 없음" },
+      status: 500,
+      body: { message: "서버 오류가 발생했습니다." },
     };
   }
-
-  return {
-    ok: true,
-    status: 200,
-    body: {
-      user: {
-        id: user.id,
-        email: user.email,
-        nickname: user.nickname,
-        url: user.url ?? null,
-        image: user.url ?? null,
-      },
-    },
-  };
 }
 
 async function updateProfileImage(userId, url) {
