@@ -56,13 +56,11 @@ async function updateProfileImage(req, res, next) {
       return res.status(400).json({ message: "이미지 파일이 필요합니다." });
     }
 
-    const imageUrl = `/uploads/profiles/${req.file.filename}`;
+    // S3 location 사용
+    const imageUrl = req.file.location;
     const result = await authService.updateProfileImage(req.id, imageUrl);
     return res.status(result.status).json(result.body);
   } catch (e) {
-    if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
     next(e);
   }
 }

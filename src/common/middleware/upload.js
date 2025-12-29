@@ -1,32 +1,23 @@
-const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
+const multerS3 = require("multer-s3");
+const s3 = require("../utils/s3");
 
-const uploadsRoot = path.resolve(__dirname, "../../../uploads");
-
-function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
-}
-
-function createDiskStorage(subdir) {
-  return multer.diskStorage({
-    destination(req, file, cb) {
-      const dest = path.join(uploadsRoot, subdir);
-      try {
-        ensureDir(dest);
-        cb(null, dest);
-      } catch (err) {
-        cb(err);
-      }
-    },
-    filename(req, file, cb) {
+function createS3Storage(subdir) {
+  return multerS3({
+    s3: s3,
+    bucket: process.env.AWS_BUCKET_NAME,
+    contentType: multerS3.AUTO_CONTENT_TYPE, // 파일 타입 자동 설정
+    key: function (req, file, cb) {
       const original = file.originalname || "file";
       const safe = original.replace(/[^\w.\-]/g, "_");
       const ext = path.extname(safe);
       const base = path.basename(safe, ext);
       const unique = `${Date.now()}-${crypto.randomUUID()}`;
-      cb(null, `${base}-${unique}${ext}`);
+
+      // S3 내 경로: subdir/파일명
+      cb(null, `${subdir}/${base}-${unique}${ext}`);
     },
   });
 }
@@ -40,9 +31,12 @@ function imageFileFilter(req, file, cb) {
   cb(null, true);
 }
 
-function createImageUploader(subdir, { maxFileSizeBytes = 10 * 1024 * 1024 } = {}) {
+function createImageUploader(
+  subdir,
+  { maxFileSizeBytes = 10 * 1024 * 1024 } = {}
+) {
   return multer({
-    storage: createDiskStorage(subdir),
+    storage: createS3Storage(subdir),
     fileFilter: imageFileFilter,
     limits: { fileSize: maxFileSizeBytes },
   });
@@ -51,4 +45,4 @@ function createImageUploader(subdir, { maxFileSizeBytes = 10 * 1024 * 1024 } = {
 const postImagesUpload = createImageUploader("posts");
 const profileImageUpload = createImageUploader("profiles");
 
-module.exports = { postImagesUpload, profileImageUpload, uploadsRoot };
+module.exports = { postImagesUpload, profileImageUpload };

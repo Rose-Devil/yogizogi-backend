@@ -60,6 +60,12 @@ const config = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
   },
+
+  ai: {
+    minPostLength: parseInt(process.env.MIN_POST_LENGTH ?? 100, 10),
+    maxDailyComments: parseInt(process.env.MAX_DAILY_AI_COMMENTS ?? 50, 10),
+    commentDelayMs: parseInt(process.env.AI_COMMENT_DELAY_MS ?? 10000, 10),
+  },
 };
 
 module.exports = { config };

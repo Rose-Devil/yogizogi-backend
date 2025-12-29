@@ -77,17 +77,17 @@ exports.getPostById = async (req, res, next) => {
 /**
  * 게시글 작성
  */
+/**
+ * 게시글 작성
+ */
 exports.createPost = async (req, res, next) => {
   try {
     const thumbnailFile = req.files?.thumbnail?.[0] ?? null;
     const imageFiles = req.files?.images ?? [];
 
-    const thumbnailUrl = thumbnailFile
-      ? `/uploads/posts/${thumbnailFile.filename}`
-      : null;
-    const imageUrls = imageFiles.map(
-      (file) => `/uploads/posts/${file.filename}`
-    );
+    // S3 location 사용
+    const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
+    const imageUrls = imageFiles.map((file) => file.location);
 
     const body = {
       ...req.body,
@@ -189,7 +189,8 @@ exports.uploadImage = async (req, res, next) => {
       return error(res, "이미지 파일을 업로드해주세요", 400);
     }
 
-    const imageUrl = `/uploads/posts/${req.file.filename}`;
+    // S3 location 사용
+    const imageUrl = req.file.location;
     const newImage = await postService.uploadImage({
       post_id: req.body.post_id,
       image_url: imageUrl,
@@ -198,10 +199,6 @@ exports.uploadImage = async (req, res, next) => {
 
     return success(res, newImage, "이미지 업로드 완료", 201);
   } catch (err) {
-    // 에러 시 업로드된 파일 삭제
-    if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
     next(err);
   }
 };
@@ -225,10 +222,7 @@ exports.deleteImage = async (req, res, next) => {
   try {
     const deletedImage = await postService.deleteImage(req.params.id);
 
-    // 파일 시스템에서 삭제
-    const filename = deletedImage.image_url.split("/").pop();
-    const filePath = path.resolve(__dirname, "../../../uploads/posts", filename);
-    await fs.unlink(filePath).catch(() => {});
+    // TODO: S3에서 파일 삭제 로직 추가 필요 (현재는 DB만 삭제)
 
     return success(res, null, "이미지 삭제 완료");
   } catch (err) {
