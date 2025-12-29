@@ -1,4 +1,5 @@
 const userRepository = require("./user.repository");
+const userModel = require("./userSettings.model");
 
 const getMyPage = async (userId) => {
   const user = await userRepository.getUserInfo(userId);
@@ -18,8 +19,13 @@ const deleteMyComment = async (userId, commentId) => {
   if (!ok) throw new Error("댓글 삭제 실패");
 };
 
+const updateProfileSettings = async (userId, name, nickname, bio) => {
+  return await userModel.updateProfileSettings(userId, name, nickname, bio);
+};
+
 module.exports = {
   getMyPage,
   deleteMyPost,
   deleteMyComment,
+  updateProfileSettings,
 };
