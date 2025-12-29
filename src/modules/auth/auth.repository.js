@@ -35,4 +35,54 @@ async function updateProfileImageUrl(id, url) {
   ]);
 }
 
-module.exports = { findByEmail, findById, createUser, updateProfileImageUrl };
+async function updatePasswordHashById(id, passwordHash) {
+  await pool.query("UPDATE `User` SET password_hash = ? WHERE id = ?", [
+    passwordHash,
+    id,
+  ]);
+}
+
+async function createEmailOtp({ email, purpose, codeHash, expiresAt }) {
+  const [result] = await pool.query(
+    "INSERT INTO EmailOtp (email, purpose, code_hash, expires_at) VALUES (?, ?, ?, ?)",
+    [email, purpose, codeHash, expiresAt]
+  );
+  return result.insertId;
+}
+
+async function findLatestOtp({ email, purpose }) {
+  const [rows] = await pool.query(
+    `SELECT id, email, purpose, code_hash AS codeHash,
+            tries, is_used AS isUsed, expires_at AS expiresAt
+     FROM EmailOtp
+     WHERE email = ? AND purpose = ?
+     ORDER BY id DESC
+     LIMIT 1`,
+    [email, purpose]
+  );
+  return rows[0] || null;
+}
+
+async function bumpOtpTries(id) {
+  await pool.query("UPDATE EmailOtp SET tries = tries + 1 WHERE id = ?", [id]);
+}
+
+async function markOtpUsed(id) {
+  await pool.query(
+    "UPDATE EmailOtp SET is_used = 1, used_at = NOW() WHERE id = ?",
+    [id]
+  );
+}
+
+module.exports = {
+  // 기존 exports 유지하고 아래만 추가
+  findByEmail,
+  findById,
+  createUser,
+  updateProfileImageUrl,
+  updatePasswordHashById,
+  createEmailOtp,
+  findLatestOtp,
+  bumpOtpTries,
+  markOtpUsed,
+};

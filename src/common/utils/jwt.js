@@ -22,4 +22,14 @@ function verifyToken(token) {
   return jwt.verify(token, config.jwt.secretKey);
 }
 
-module.exports = { createAccessToken, createRefreshToken, verifyToken };
+// src/common/utils/jwt.js
+function createTicketToken({ email, typ, ttlSeconds = 15 * 60 }) {
+  return jwt.sign({ email, typ }, config.jwt.secretKey, { expiresIn: ttlSeconds });
+}
+
+module.exports = {
+  createAccessToken,
+  createRefreshToken,
+  verifyToken,
+  createTicketToken, // ✅ 추가
+};

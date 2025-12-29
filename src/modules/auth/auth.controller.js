@@ -87,4 +87,60 @@ async function logout(req, res, next) {
   }
 }
 
-module.exports = { signup, login, me, updateProfileImage, refresh, logout };
+async function signupRequestCode(req, res, next) {
+  try {
+    const { email } = req.body;
+    const result = await authService.signupRequestCode(email);
+    return res.status(result.status).json(result.body);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function signupVerifyCode(req, res, next) {
+  try {
+    const { email, code } = req.body;
+    const result = await authService.signupVerifyCode({ email, code });
+    return res.status(result.status).json(result.body);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function changePasswordRequestCode(req, res, next) {
+  try {
+    const result = await authService.changePasswordRequestCode(req.id);
+    return res.status(result.status).json(result.body);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function changePasswordConfirm(req, res, next) {
+  try {
+    const { oldPassword, newPassword, code } = req.body;
+    const result = await authService.changePasswordConfirm({
+      userId: req.id,
+      oldPassword,
+      newPassword,
+      code,
+    });
+    return res.status(result.status).json(result.body);
+  } catch (e) {
+    next(e);
+  }
+}
+
+module.exports = {
+  // 기존 exports 유지 + 아래 추가
+  signup,
+  login,
+  me,
+  updateProfileImage,
+  refresh,
+  logout,
+  signupRequestCode,
+  signupVerifyCode,
+  changePasswordRequestCode,
+  changePasswordConfirm,
+};

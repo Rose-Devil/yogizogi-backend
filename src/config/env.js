@@ -66,6 +66,22 @@ const config = {
     maxDailyComments: parseInt(process.env.MAX_DAILY_AI_COMMENTS ?? 50, 10),
     commentDelayMs: parseInt(process.env.AI_COMMENT_DELAY_MS ?? 10000, 10),
   },
+
+  
+  otp: {
+    secret: process.env.OTP_SECRET,                 // 없으면 서비스에서 500 처리
+    expiresMin: parseInt(process.env.OTP_EXPIRES_MIN ?? 10, 10),
+    maxTries: parseInt(process.env.OTP_MAX_TRIES ?? 5, 10),
+  },
+
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT ?? 465, 10),
+    secure: process.env.SMTP_SECURE ?? "true",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from: process.env.MAIL_FROM,
+  },
 };
 
 module.exports = { config };
