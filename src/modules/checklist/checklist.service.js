@@ -1,38 +1,38 @@
 const { pool } = require("../../config/db");
 const crypto = require("crypto");
+const checklistRepository = require("./checklist.repository");
+const authRepository = require("../auth/auth.repository");
 
-// 초대코드 생성 (UNIQUE 충돌 가능성 낮지만, 충돌 시 재시도)
+const { generate6DigitCode, hashOtp } = require("../../common/utils/otp");
+const { sendMail } = require("../../common/utils/mailer");
+const { config } = require("../../config/env");
+const { createTicketToken, verifyToken } = require("../../common/utils/jwt");
+
 function generateInviteCode() {
   return crypto.randomBytes(8).toString("hex"); // 16 chars
 }
 
-async function list(userId) {
-  const conn = await pool.getConnection();
-  try {
-    const [rows] = await conn.query(
-      `SELECT 
-          r.id,
-          r.name AS title,
-          r.description,
-          r.created_at AS createdAt,
-          (SELECT COUNT(*) FROM \`ChecklistItem\` i WHERE i.room_id = r.id) AS itemCount,
-          (SELECT COUNT(*) FROM \`ChecklistMember\` m WHERE m.room_id = r.id) AS members
-       FROM \`ChecklistRoom\` r
-       WHERE r.owner_id = ?
-       ORDER BY r.created_at DESC`,
-      [userId]
-    );
+function getJoinOtpPurpose({ roomId, inviteCode }) {
+  return `checklist_join:${roomId}:${inviteCode}`;
+}
 
-    return rows;
-  } finally {
-    conn.release();
-  }
+async function requireRoomMember({ checklistId, userId }) {
+  const room = await checklistRepository.findRoomById(checklistId);
+  if (!room) throw { statusCode: 404, message: "체크리스트를 찾을 수 없습니다." };
+
+  const ok = await checklistRepository.isMember({ roomId: checklistId, userId });
+  if (!ok) throw { statusCode: 403, message: "체크리스트에 접근할 권한이 없습니다." };
+
+  return room;
+}
+
+async function list(userId) {
+  return checklistRepository.listRoomsForUser(userId);
 }
 
 async function create({ userId, title, description }) {
   const conn = await pool.getConnection();
   try {
-    // invite_code UNIQUE라서 충돌나면 몇 번 재시도
     let inviteCode = null;
     let insertId = null;
 
@@ -49,20 +49,15 @@ async function create({ userId, title, description }) {
         insertId = result.insertId;
         break;
       } catch (err) {
-        // 중복이면 재시도
         if (err && err.code === "ER_DUP_ENTRY") continue;
         throw err;
       }
     }
 
     if (!insertId) {
-      throw new Error(
-        "Failed to create room: invite_code collision retries exceeded."
-      );
+      throw new Error("Failed to create room: invite_code collision retries exceeded.");
     }
 
-    // (선택) 트리거가 방장 OWNER 멤버 자동 생성하지만,
-    // 혹시 트리거 없을 때도 대비해서 upsert로 보강 가능
     await conn.query(
       `INSERT INTO \`ChecklistMember\` (room_id, user_id, role)
        VALUES (?, ?, 'OWNER')
@@ -70,13 +65,122 @@ async function create({ userId, title, description }) {
       [insertId, userId]
     );
 
-    return insertId;
+    return { id: insertId, inviteCode };
   } finally {
     conn.release();
   }
 }
 
-async function detail({ id }) {
+async function getInvite({ checklistId, userId }) {
+  const room = await requireRoomMember({ checklistId, userId });
+  return { inviteCode: room.inviteCode };
+}
+
+async function requestJoinOtp({ userId, inviteCode }) {
+  const room = await checklistRepository.findRoomByInviteCode(inviteCode);
+  if (!room) throw { statusCode: 404, message: "유효하지 않은 초대코드입니다." };
+
+  const already = await checklistRepository.isMember({ roomId: room.id, userId });
+  if (already) {
+    return { message: "이미 참여한 체크리스트입니다." };
+  }
+
+  const user = await authRepository.findById(userId);
+  if (!user?.email) throw { statusCode: 401, message: "사용자 정보를 확인할 수 없습니다." };
+
+  const code = generate6DigitCode();
+  const secret = config.otp?.secret || process.env.OTP_SECRET;
+  const expiresMin = Number(config.otp?.expiresMin || process.env.OTP_EXPIRES_MIN || 10);
+  if (!secret) throw { statusCode: 500, message: "OTP 설정이 필요합니다." };
+
+  const purpose = getJoinOtpPurpose({ roomId: room.id, inviteCode });
+  const codeHash = hashOtp({ email: user.email, purpose, code, secret });
+  const expiresAt = new Date(Date.now() + expiresMin * 60 * 1000);
+
+  await authRepository.createEmailOtp({ email: user.email, purpose, codeHash, expiresAt });
+
+  await sendMail({
+    to: user.email,
+    subject: "[YogiZogi] 체크리스트 참여 인증 코드",
+    text: `인증 코드는 ${code} 입니다. (${expiresMin}분 내 입력)`,
+  });
+
+  return { message: "인증 코드를 이메일로 전송했습니다." };
+}
+
+async function verifyJoinOtp({ userId, inviteCode, code }) {
+  const room = await checklistRepository.findRoomByInviteCode(inviteCode);
+  if (!room) throw { statusCode: 404, message: "유효하지 않은 초대코드입니다." };
+
+  const already = await checklistRepository.isMember({ roomId: room.id, userId });
+  if (already) {
+    return { ticket: null, message: "이미 참여한 체크리스트입니다." };
+  }
+
+  const user = await authRepository.findById(userId);
+  if (!user?.email) throw { statusCode: 401, message: "사용자 정보를 확인할 수 없습니다." };
+
+  const purpose = getJoinOtpPurpose({ roomId: room.id, inviteCode });
+  const row = await authRepository.findLatestOtp({ email: user.email, purpose });
+  if (!row) throw { statusCode: 400, message: "인증 코드를 먼저 요청해주세요." };
+
+  const maxTries = Number(config.otp?.maxTries || process.env.OTP_MAX_TRIES || 5);
+  const secret = config.otp?.secret || process.env.OTP_SECRET;
+  if (!secret) throw { statusCode: 500, message: "OTP 설정이 필요합니다." };
+
+  if (row.isUsed) throw { statusCode: 400, message: "이미 사용된 코드입니다." };
+  if (row.tries >= maxTries) throw { statusCode: 429, message: "시도 횟수 초과. 다시 요청해주세요." };
+  if (new Date(row.expiresAt).getTime() < Date.now()) throw { statusCode: 400, message: "코드가 만료되었습니다." };
+
+  const expected = hashOtp({ email: user.email, purpose, code, secret });
+  if (expected !== row.codeHash) {
+    await authRepository.bumpOtpTries(row.id);
+    throw { statusCode: 400, message: "인증 코드가 올바르지 않습니다." };
+  }
+
+  await authRepository.markOtpUsed(row.id);
+
+  const ticket = createTicketToken({
+    email: user.email,
+    typ: "checklist_join_ticket",
+    roomId: room.id,
+    ttlSeconds: 15 * 60,
+  });
+
+  return { ticket };
+}
+
+async function joinByInvite({ userId, inviteCode, ticket }) {
+  const room = await checklistRepository.findRoomByInviteCode(inviteCode);
+  if (!room) throw { statusCode: 404, message: "유효하지 않은 초대코드입니다." };
+
+  const user = await authRepository.findById(userId);
+  if (!user?.email) throw { statusCode: 401, message: "사용자 정보를 확인할 수 없습니다." };
+
+  if (!ticket) throw { statusCode: 400, message: "참여 인증이 필요합니다." };
+
+  let decoded;
+  try {
+    decoded = verifyToken(ticket);
+  } catch (e) {
+    throw { statusCode: 401, message: "참여 티켓이 만료되었거나 유효하지 않습니다." };
+  }
+
+  if (
+    decoded?.typ !== "checklist_join_ticket" ||
+    decoded?.email !== user.email ||
+    Number(decoded?.roomId) !== Number(room.id)
+  ) {
+    throw { statusCode: 401, message: "참여 티켓이 유효하지 않습니다." };
+  }
+
+  await checklistRepository.upsertMember({ roomId: room.id, userId, role: "MEMBER" });
+
+  return { checklistId: room.id };
+}
+
+async function detail({ id, userId }) {
+  await requireRoomMember({ checklistId: id, userId });
   const conn = await pool.getConnection();
   try {
     const [[checklist]] = await conn.query(
@@ -100,7 +204,7 @@ async function detail({ id }) {
           i.quantity,
           (i.status = 'DONE') AS isCompleted
        FROM \`ChecklistItem\` i
-       LEFT JOIN users u ON u.id = i.assignee_id
+       LEFT JOIN \`User\` u ON u.id = i.assignee_id
        WHERE i.room_id = ?
        ORDER BY i.id`,
       [id]
@@ -112,7 +216,7 @@ async function detail({ id }) {
           u.nickname AS name,
           m.role
        FROM \`ChecklistMember\` m
-       LEFT JOIN users u ON u.id = m.user_id
+       LEFT JOIN \`User\` u ON u.id = m.user_id
        WHERE m.room_id = ?`,
       [id]
     );
@@ -123,21 +227,17 @@ async function detail({ id }) {
   }
 }
 
-async function addItem({ checklistId, name, assignedTo, quantity }) {
+async function addItem({ checklistId, userId, name, assignedTo, quantity }) {
+  await requireRoomMember({ checklistId, userId });
   const conn = await pool.getConnection();
   try {
-    // assignedTo가 숫자(userId)로 오면 assignee_id로 저장, 아니면 NULL
     const assigneeId =
-      assignedTo !== undefined &&
-      assignedTo !== null &&
-      String(assignedTo).trim() !== ""
+      assignedTo !== undefined && assignedTo !== null && String(assignedTo).trim() !== ""
         ? Number(assignedTo)
         : null;
 
     const safeAssigneeId = Number.isFinite(assigneeId) ? assigneeId : null;
-    const safeQty = Number.isFinite(Number(quantity))
-      ? Math.max(1, Number(quantity))
-      : 1;
+    const safeQty = Number.isFinite(Number(quantity)) ? Math.max(1, Number(quantity)) : 1;
 
     const [result] = await conn.query(
       `INSERT INTO \`ChecklistItem\`
@@ -152,7 +252,8 @@ async function addItem({ checklistId, name, assignedTo, quantity }) {
   }
 }
 
-async function updateItemStatus({ checklistId, itemId, isCompleted }) {
+async function updateItemStatus({ checklistId, userId, itemId, isCompleted }) {
+  await requireRoomMember({ checklistId, userId });
   const conn = await pool.getConnection();
   try {
     const status = isCompleted ? "DONE" : "PENDING";
@@ -167,7 +268,8 @@ async function updateItemStatus({ checklistId, itemId, isCompleted }) {
   }
 }
 
-async function removeItem({ checklistId, itemId }) {
+async function removeItem({ checklistId, userId, itemId }) {
+  await requireRoomMember({ checklistId, userId });
   const conn = await pool.getConnection();
   try {
     await conn.query(
@@ -183,6 +285,10 @@ async function removeItem({ checklistId, itemId }) {
 module.exports = {
   list,
   create,
+  getInvite,
+  requestJoinOtp,
+  verifyJoinOtp,
+  joinByInvite,
   detail,
   addItem,
   updateItemStatus,

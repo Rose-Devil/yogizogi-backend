@@ -1,80 +1,134 @@
-const checklistService = require("./checklist.service")
+const checklistService = require("./checklist.service");
 
 async function list(req, res, next) {
   try {
-    const items = await checklistService.list(req.id)
-    return res.json({ items })
+    const items = await checklistService.list(req.id);
+    return res.json({ items });
   } catch (err) {
-    return next(err)
+    return next(err);
   }
 }
 
 async function create(req, res, next) {
-  const title = (req.body?.title || "").trim()
-  const description = (req.body?.description || "").trim()
+  const title = (req.body?.title || "").trim();
+  const description = (req.body?.description || "").trim();
 
   if (!title) {
-    return res.status(400).json({ message: "제목은 필수입니다." })
+    return res.status(400).json({ message: "제목은 필수입니다." });
   }
 
   try {
-    const id = await checklistService.create({
+    const data = await checklistService.create({
       userId: req.id,
       title,
       description: description || null,
-    })
-    return res.status(201).json({ id })
+    });
+    return res.status(201).json(data);
   } catch (err) {
-    return next(err)
+    return next(err);
   }
 }
 
 async function detail(req, res, next) {
   try {
-    const data = await checklistService.detail({ id: req.params.id })
+    const data = await checklistService.detail({ id: req.params.id, userId: req.id });
     if (!data) {
-      return res.status(404).json({ message: "체크리스트를 찾을 수 없습니다." })
+      return res.status(404).json({ message: "체크리스트를 찾을 수 없습니다." });
     }
-    return res.json(data)
+    return res.json(data);
   } catch (err) {
-    return next(err)
+    return next(err);
+  }
+}
+
+async function getInvite(req, res, next) {
+  try {
+    const data = await checklistService.getInvite({
+      checklistId: req.params.id,
+      userId: req.id,
+    });
+    return res.json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function requestJoinOtp(req, res, next) {
+  const inviteCode = (req.body?.inviteCode || "").trim();
+  if (!inviteCode) return res.status(400).json({ message: "inviteCode는 필수입니다." });
+
+  try {
+    const data = await checklistService.requestJoinOtp({ userId: req.id, inviteCode });
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function verifyJoinOtp(req, res, next) {
+  const inviteCode = (req.body?.inviteCode || "").trim();
+  const code = (req.body?.code || "").trim();
+  if (!inviteCode) return res.status(400).json({ message: "inviteCode는 필수입니다." });
+  if (!code) return res.status(400).json({ message: "code는 필수입니다." });
+
+  try {
+    const data = await checklistService.verifyJoinOtp({ userId: req.id, inviteCode, code });
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function join(req, res, next) {
+  const inviteCode = (req.body?.inviteCode || "").trim();
+  const ticket = (req.body?.ticket || "").trim();
+  if (!inviteCode) return res.status(400).json({ message: "inviteCode는 필수입니다." });
+  if (!ticket) return res.status(400).json({ message: "ticket은 필수입니다." });
+
+  try {
+    const data = await checklistService.joinByInvite({ userId: req.id, inviteCode, ticket });
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
   }
 }
 
 async function addItem(req, res, next) {
-  const name = (req.body?.name || "").trim()
-  const assignedTo = (req.body?.assignedTo || "").trim() || null
-  const quantity = Number.parseInt(req.body?.quantity, 10) || 1
+  const name = (req.body?.name || "").trim();
+  const assignedTo = (req.body?.assignedTo || "").trim() || null;
+  const quantity = Number.parseInt(req.body?.quantity, 10) || 1;
 
   if (!name) {
-    return res.status(400).json({ message: "항목 이름은 필수입니다." })
+    return res.status(400).json({ message: "항목 이름은 필수입니다." });
   }
 
   try {
     const id = await checklistService.addItem({
       checklistId: req.params.id,
+      userId: req.id,
       name,
       assignedTo,
       quantity: Math.max(1, quantity),
-    })
-    return res.status(201).json({ id })
+    });
+    return res.status(201).json({ id });
   } catch (err) {
-    return next(err)
+    return next(err);
   }
 }
 
 async function updateItemStatus(req, res, next) {
-  const isCompleted = Boolean(req.body?.isCompleted)
+  const isCompleted = Boolean(req.body?.isCompleted);
 
   try {
     await checklistService.updateItemStatus({
       checklistId: req.params.id,
+      userId: req.id,
       itemId: req.params.itemId,
       isCompleted,
-    })
-    return res.status(204).end()
+    });
+    return res.status(204).end();
   } catch (err) {
-    return next(err)
+    return next(err);
   }
 }
 
@@ -82,11 +136,12 @@ async function removeItem(req, res, next) {
   try {
     await checklistService.removeItem({
       checklistId: req.params.id,
+      userId: req.id,
       itemId: req.params.itemId,
-    })
-    return res.status(204).end()
+    });
+    return res.status(204).end();
   } catch (err) {
-    return next(err)
+    return next(err);
   }
 }
 
@@ -94,8 +149,11 @@ module.exports = {
   list,
   create,
   detail,
+  getInvite,
+  requestJoinOtp,
+  verifyJoinOtp,
+  join,
   addItem,
   updateItemStatus,
   removeItem,
-}
-
+};

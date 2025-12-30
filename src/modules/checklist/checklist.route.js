@@ -1,28 +1,22 @@
-const express = require("express")
-const router = express.Router()
-const { authGuard } = require("../../common/middleware/authGuard")
-const checklistController = require("./checklist.controller")
+const express = require("express");
+const router = express.Router();
+const { authGuard } = require("../../common/middleware/authGuard");
+const checklistController = require("./checklist.controller");
 
-// 인증 필요
-router.use(authGuard)
+router.use(authGuard);
 
-// 목록
-router.get("/", checklistController.list)
+router.get("/", checklistController.list);
+router.post("/", checklistController.create);
 
-// 생성
-router.post("/", checklistController.create)
+// inviteCode + 이메일 OTP 기반 참여
+router.post("/join/request-otp", checklistController.requestJoinOtp);
+router.post("/join/verify-otp", checklistController.verifyJoinOtp);
+router.post("/join", checklistController.join);
 
-// 상세
-router.get("/:id", checklistController.detail)
+router.get("/:id/invite", checklistController.getInvite);
+router.get("/:id", checklistController.detail);
+router.post("/:id/items", checklistController.addItem);
+router.patch("/:id/items/:itemId", checklistController.updateItemStatus);
+router.delete("/:id/items/:itemId", checklistController.removeItem);
 
-// 아이템 추가
-router.post("/:id/items", checklistController.addItem)
-
-// 아이템 상태 업데이트
-router.patch("/:id/items/:itemId", checklistController.updateItemStatus)
-
-// 아이템 삭제
-router.delete("/:id/items/:itemId", checklistController.removeItem)
-
-module.exports = router
-
+module.exports = router;
