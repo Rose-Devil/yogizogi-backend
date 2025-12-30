@@ -13,10 +13,44 @@ async function findByEmail(email) {
 // ID로 찾기 (로그인 유지용)
 async function findById(id) {
   const [rows] = await pool.query(
-    "SELECT id, email, nickname, profile_image_url AS url FROM `User` WHERE id = ? LIMIT 1",
+    "SELECT id, email, nickname, profile_image_url AS url, bio, created_at FROM `User` WHERE id = ? LIMIT 1",
     [id]
   );
   return rows[0] || null;
+}
+
+async function findMyTravelPosts(userId) {
+  const [rows] = await pool.query(
+    `SELECT 
+      id,
+      title,
+      region,
+      view_count,
+      DATE_FORMAT(created_at, '%Y-%m-%d') AS created_at,
+      thumbnail_url
+    FROM TravelPost 
+    WHERE author_id = ? AND is_deleted = FALSE 
+    ORDER BY created_at DESC`,
+    [userId]
+  );
+  return rows;
+}
+
+async function getMyPostsStats(userId) {
+  const [rows] = await pool.query(
+    `SELECT 
+      COUNT(*) AS post_count,
+      COALESCE(SUM(view_count), 0) AS total_views
+    FROM TravelPost 
+    WHERE author_id = ? AND is_deleted = FALSE`,
+    [userId]
+  );
+  return rows[0] || { post_count: 0, total_views: 0 };
+}
+
+// 내 프로필 조회
+async function findByMyProfile(id) {
+  const [rows] = await pool.query("");
 }
 
 // 회원가입
@@ -80,9 +114,14 @@ module.exports = {
   findById,
   createUser,
   updateProfileImageUrl,
+
   updatePasswordHashById,
   createEmailOtp,
   findLatestOtp,
   bumpOtpTries,
   markOtpUsed,
+
+  findByMyProfile,
+  findMyTravelPosts,
+  getMyPostsStats,
 };
