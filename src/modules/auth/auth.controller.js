@@ -14,8 +14,8 @@ const refreshCookieOptions = {
 
 async function signup(req, res, next) {
   try {
-    const { email, password, nickname, url } = req.body;
-    const result = await authService.signup({ email, password, nickname, url });
+    const { email, password, nickname, url, signupTicket } = req.body;
+    const result = await authService.signup({ email, password, nickname, url, signupTicket });
 
     if (!result.ok) return res.status(result.status).json(result.body);
 

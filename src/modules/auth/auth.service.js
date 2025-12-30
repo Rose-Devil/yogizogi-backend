@@ -1,4 +1,4 @@
-const authRepository = require("./auth.repository");
+﻿const authRepository = require("./auth.repository");
 const { hashPassword, verifyPassword } = require("../../common/utils/password");
 const {
   createAccessToken,
@@ -11,14 +11,14 @@ const { generate6DigitCode, hashOtp } = require("../../common/utils/otp");
 const { sendMail } = require("../../common/utils/mailer");
 const { config } = require("../../config/env");
 
-// 공통: OTP 요청(메일 발송 + DB 저장)
+// 怨듯넻: OTP ?붿껌(硫붿씪 諛쒖넚 + DB ???
 async function requestEmailCode({ email, purpose }) {
   const code = generate6DigitCode();
   const secret = config.otp?.secret || process.env.OTP_SECRET;
   const expiresMin = Number(config.otp?.expiresMin || process.env.OTP_EXPIRES_MIN || 10);
 
   if (!secret) {
-    return { ok: false, status: 500, body: { message: "OTP_SECRET이 필요합니다." } };
+    return { ok: false, status: 500, body: { message: "OTP_SECRET???꾩슂?⑸땲??" } };
   }
 
   const codeHash = hashOtp({ email, purpose, code, secret });
@@ -28,29 +28,29 @@ async function requestEmailCode({ email, purpose }) {
 
   await sendMail({
     to: email,
-    subject: "[YogiZogi] 이메일 인증 코드",
-    text: `인증 코드는 ${code} 입니다. (${expiresMin}분 내 입력)`,
+    subject: "[YogiZogi] ?대찓???몄쬆 肄붾뱶",
+    text: `?몄쬆 肄붾뱶??${code} ?낅땲?? (${expiresMin}遺????낅젰)`,
   });
 
-  return { ok: true, status: 200, body: { message: "인증 코드를 전송했습니다." } };
+  return { ok: true, status: 200, body: { message: "?몄쬆 肄붾뱶瑜??꾩넚?덉뒿?덈떎." } };
 }
 
-// 공통: OTP 검증 후 티켓 발급
+// 怨듯넻: OTP 寃利????곗폆 諛쒓툒
 async function verifyEmailCodeAndIssueTicket({ email, purpose, code, ticketTyp }) {
   const row = await authRepository.findLatestOtp({ email, purpose });
-  if (!row) return { ok: false, status: 400, body: { message: "코드를 다시 요청해주세요." } };
+  if (!row) return { ok: false, status: 400, body: { message: "肄붾뱶瑜??ㅼ떆 ?붿껌?댁＜?몄슂." } };
 
   const maxTries = Number(config.otp?.maxTries || process.env.OTP_MAX_TRIES || 5);
   const secret = config.otp?.secret || process.env.OTP_SECRET;
 
-  if (row.isUsed) return { ok: false, status: 400, body: { message: "이미 사용된 코드입니다." } };
-  if (row.tries >= maxTries) return { ok: false, status: 429, body: { message: "시도 횟수 초과. 다시 요청해주세요." } };
-  if (new Date(row.expiresAt).getTime() < Date.now()) return { ok: false, status: 400, body: { message: "코드가 만료되었습니다." } };
+  if (row.isUsed) return { ok: false, status: 400, body: { message: "?대? ?ъ슜??肄붾뱶?낅땲??" } };
+  if (row.tries >= maxTries) return { ok: false, status: 429, body: { message: "?쒕룄 ?잛닔 珥덇낵. ?ㅼ떆 ?붿껌?댁＜?몄슂." } };
+  if (new Date(row.expiresAt).getTime() < Date.now()) return { ok: false, status: 400, body: { message: "肄붾뱶媛 留뚮즺?섏뿀?듬땲??" } };
 
   const expected = hashOtp({ email, purpose, code, secret });
   if (expected !== row.codeHash) {
     await authRepository.bumpOtpTries(row.id);
-    return { ok: false, status: 400, body: { message: "인증 코드가 올바르지 않습니다." } };
+    return { ok: false, status: 400, body: { message: "?몄쬆 肄붾뱶媛 ?щ컮瑜댁? ?딆뒿?덈떎." } };
   }
 
   await authRepository.markOtpUsed(row.id);
@@ -59,15 +59,15 @@ async function verifyEmailCodeAndIssueTicket({ email, purpose, code, ticketTyp }
   return { ok: true, status: 200, body: { ticket } };
 }
 
-/** 1) 회원가입: 코드 요청 */
+/** 1) ?뚯썝媛?? 肄붾뱶 ?붿껌 */
 async function signupRequestCode(email) {
   const found = await authRepository.findByEmail(email);
-  if (found) return { ok: false, status: 409, body: { message: `${email}이 이미 있습니다.` } };
+  if (found) return { ok: false, status: 409, body: { message: `${email}???대? ?덉뒿?덈떎.` } };
 
   return requestEmailCode({ email, purpose: "signup" });
 }
 
-/** 2) 회원가입: 코드 검증 → signupTicket 발급 */
+/** 2) ?뚯썝媛?? 肄붾뱶 寃利???signupTicket 諛쒓툒 */
 async function signupVerifyCode({ email, code }) {
   return verifyEmailCodeAndIssueTicket({
     email,
@@ -77,24 +77,24 @@ async function signupVerifyCode({ email, code }) {
   });
 }
 
-/** 3) 회원가입: signupTicket 검증 후 가입 */
+/** 3) ?뚯썝媛?? signupTicket 寃利???媛??*/
 async function signup({ email, password, nickname, url, signupTicket }) {
   if (!signupTicket) {
-    return { ok: false, status: 400, body: { message: "이메일 인증이 필요합니다." } };
+    return { ok: false, status: 400, body: { message: "?대찓???몄쬆???꾩슂?⑸땲??" } };
   }
 
   try {
     const decoded = verifyToken(signupTicket);
     if (decoded.typ !== "signup_ticket" || decoded.email !== email) {
-      return { ok: false, status: 401, body: { message: "인증 티켓이 유효하지 않습니다." } };
+      return { ok: false, status: 401, body: { message: "?몄쬆 ?곗폆???좏슚?섏? ?딆뒿?덈떎." } };
     }
   } catch (e) {
-    return { ok: false, status: 401, body: { message: "인증 티켓이 만료/유효하지 않습니다." } };
+    return { ok: false, status: 401, body: { message: "?몄쬆 ?곗폆??留뚮즺/?좏슚?섏? ?딆뒿?덈떎." } };
   }
 
   const found = await authRepository.findByEmail(email);
   if (found) {
-    return { ok: false, status: 409, body: { message: `${email}이 이미 있습니다.` } };
+    return { ok: false, status: 409, body: { message: `${email}???대? ?덉뒿?덈떎.` } };
   }
 
   const passwordHash = hashPassword(password);
@@ -111,13 +111,13 @@ async function signup({ email, password, nickname, url, signupTicket }) {
   };
 }
 
-// 로그인
+// 濡쒓렇??
 async function login({ email, password }) {
   const user = await authRepository.findByEmail(email);
-  if (!user) return { ok: false, status: 401, body: { message: `${email}를 찾을 수 없음` } };
+  if (!user) return { ok: false, status: 401, body: { message: `${email}瑜?李얠쓣 ???놁쓬` } };
 
   const isValid = verifyPassword(password, user.passwordHash);
-  if (!isValid) return { ok: false, status: 401, body: { message: "비밀번호 오류" } };
+  if (!isValid) return { ok: false, status: 401, body: { message: "鍮꾨?踰덊샇 ?ㅻ쪟" } };
 
   const accessToken = createAccessToken(user.id);
   const refreshToken = createRefreshToken(user.id);
@@ -136,7 +136,7 @@ async function login({ email, password }) {
 // me
 async function me(userId) {
   const user = await authRepository.findById(userId);
-  if (!user) return { ok: false, status: 401, body: { message: "사용자를 찾을 수 없음" } };
+  if (!user) return { ok: false, status: 401, body: { message: "?ъ슜?먮? 李얠쓣 ???놁쓬" } };
 
   return {
     ok: true,
@@ -148,7 +148,7 @@ async function me(userId) {
 async function updateProfileImage(userId, url) {
   await authRepository.updateProfileImageUrl(userId, url);
   const user = await authRepository.findById(userId);
-  if (!user) return { ok: false, status: 401, body: { message: "사용자를 찾을 수 없음" } };
+  if (!user) return { ok: false, status: 401, body: { message: "?ъ슜?먮? 李얠쓣 ???놁쓬" } };
 
   return {
     ok: true,
@@ -159,19 +159,19 @@ async function updateProfileImage(userId, url) {
 
 // refresh
 async function refresh(refreshToken) {
-  if (!refreshToken) return { ok: false, status: 401, body: { message: "Refresh Token이 없습니다." } };
+  if (!refreshToken) return { ok: false, status: 401, body: { message: "Refresh Token???놁뒿?덈떎." } };
 
   try {
     const decoded = verifyToken(refreshToken);
-    if (decoded.typ !== "refresh") return { ok: false, status: 401, body: { message: "Refresh Token이 아닙니다." } };
+    if (decoded.typ !== "refresh") return { ok: false, status: 401, body: { message: "Refresh Token???꾨떃?덈떎." } };
 
     const user = await authRepository.findById(decoded.id);
-    if (!user) return { ok: false, status: 401, body: { message: "사용자를 찾을 수 없음" } };
+    if (!user) return { ok: false, status: 401, body: { message: "?ъ슜?먮? 李얠쓣 ???놁쓬" } };
 
     const newAccessToken = createAccessToken(decoded.id);
     return { ok: true, status: 200, body: { accessToken: newAccessToken } };
   } catch (e) {
-    return { ok: false, status: 401, body: { message: "Refresh Token이 유효하지 않습니다." } };
+    return { ok: false, status: 401, body: { message: "Refresh Token???좏슚?섏? ?딆뒿?덈떎." } };
   }
 }
 
@@ -179,34 +179,35 @@ async function logout() {
   return { ok: true, status: 200, body: { message: "logout ok" } };
 }
 
-/** 4) 비밀번호 변경(로그인 필요): 코드 요청 */
+/** 4) 鍮꾨?踰덊샇 蹂寃?濡쒓렇???꾩슂): 肄붾뱶 ?붿껌 */
 async function changePasswordRequestCode(userId) {
   const user = await authRepository.findById(userId);
-  if (!user) return { ok: false, status: 401, body: { message: "사용자를 찾을 수 없음" } };
+  if (!user) return { ok: false, status: 401, body: { message: "?ъ슜?먮? 李얠쓣 ???놁쓬" } };
 
   return requestEmailCode({ email: user.email, purpose: "change_password" });
 }
 
-/** 5) 비밀번호 변경(로그인 필요): 코드+기존비번 검증 후 변경 */
+/** 5) 鍮꾨?踰덊샇 蹂寃?濡쒓렇???꾩슂): 肄붾뱶+湲곗〈鍮꾨쾲 寃利???蹂寃?*/
 async function changePasswordConfirm({ userId, oldPassword, newPassword, code }) {
   const user = await authRepository.findByEmail((await authRepository.findById(userId))?.email);
-  if (!user) return { ok: false, status: 401, body: { message: "사용자를 찾을 수 없음" } };
-
-  const okOld = verifyPassword(oldPassword, user.passwordHash);
-  if (!okOld) return { ok: false, status: 401, body: { message: "기존 비밀번호가 올바르지 않습니다." } };
+  if (!user) return { ok: false, status: 401, body: { message: "?ъ슜?먮? 李얠쓣 ???놁쓬" } };
+  if (oldPassword) {
+    const okOld = verifyPassword(oldPassword, user.passwordHash);
+    if (!okOld) return { ok: false, status: 401, body: { message: "湲곗〈 鍮꾨?踰덊샇媛 ?щ컮瑜댁? ?딆뒿?덈떎." } };
+  }
 
   const v = await verifyEmailCodeAndIssueTicket({
     email: user.email,
     purpose: "change_password",
     code,
-    ticketTyp: "change_password_ticket", // 여기서는 티켓 발급만 하고, 성공 여부로 사용
+    ticketTyp: "change_password_ticket", // ?ш린?쒕뒗 ?곗폆 諛쒓툒留??섍퀬, ?깃났 ?щ?濡??ъ슜
   });
   if (!v.ok) return v;
 
   const passwordHash = hashPassword(newPassword);
   await authRepository.updatePasswordHashById(user.id, passwordHash);
 
-  return { ok: true, status: 200, body: { message: "비밀번호가 변경되었습니다." } };
+  return { ok: true, status: 200, body: { message: "鍮꾨?踰덊샇媛 蹂寃쎈릺?덉뒿?덈떎." } };
 }
 
 module.exports = {

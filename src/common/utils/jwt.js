@@ -23,8 +23,8 @@ function verifyToken(token) {
 }
 
 // src/common/utils/jwt.js
-function createTicketToken({ email, typ, ttlSeconds = 15 * 60 }) {
-  return jwt.sign({ email, typ }, config.jwt.secretKey, { expiresIn: ttlSeconds });
+function createTicketToken({ email, typ, ttlSeconds = 15 * 60, ...claims }) {
+  return jwt.sign({ email, typ, ...claims }, config.jwt.secretKey, { expiresIn: ttlSeconds });
 }
 
 module.exports = {

@@ -34,16 +34,16 @@ const deleteMyComment = async (req, res, next) => {
 
 const updateProfileSettings = async (req, res, next) => {
   try {
-    console.log(req.user.id);
-
     const userId = req.user.id;
     const { email, nickname, bio } = req.body;
+
     const updatedProfile = await userService.updateProfileSettings(
       userId,
       email,
       nickname,
       bio
     );
+
     res.json({ message: "프로필 설정 업데이트 완료", profile: updatedProfile });
   } catch (err) {
     next(err);

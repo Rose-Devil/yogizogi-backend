@@ -89,8 +89,11 @@ exports.createPost = async (req, res, next) => {
     const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
     const imageUrls = imageFiles.map((file) => file.location);
 
+    const { author_id: ignoredAuthorId, ...restBody } = req.body;
+
     const body = {
-      ...req.body,
+      ...restBody,
+      author_id: req.user?.id,
       tags: parseTags(req.body.tags),
     };
 
