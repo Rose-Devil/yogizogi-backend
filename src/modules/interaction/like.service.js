@@ -1,6 +1,7 @@
 // 좋아요 서비스
 const likeRepository = require("./like.repository");
 const { error } = require("../../common/utils/response");
+const { TravelPost } = require("../post/models");
 
 
 
@@ -19,6 +20,13 @@ exports.addLike = async (userId, postId) => {
 
   // 좋아요 추가
   const like = await likeRepository.createLike(userId, postId);
+
+  // TravelPost의 like_count 증가
+  const post = await TravelPost.findByPk(postId);
+  if (post) {
+    await post.increment("like_count");
+    await post.reload();
+  }
 
   // 좋아요 개수 조회
   const likeCount = await likeRepository.countLikesByPost(postId);
@@ -44,6 +52,13 @@ exports.removeLike = async (userId, postId) => {
 
   // 좋아요 취소
   await likeRepository.deleteLike(userId, postId);
+
+  // TravelPost의 like_count 감소
+  const post = await TravelPost.findByPk(postId);
+  if (post && post.like_count > 0) {
+    await post.decrement("like_count");
+    await post.reload();
+  }
 
   // 좋아요 개수 조회
   const likeCount = await likeRepository.countLikesByPost(postId);
