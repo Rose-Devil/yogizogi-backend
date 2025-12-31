@@ -11,6 +11,12 @@ const { errorHandler } = require("./common/middleware/errorHandler");
 const authRouter = require("./modules/auth/auth.route");
 const postRouters = require("./modules/post/post.route");
 const checklistRouter = require("./modules/checklist/checklist.route");
+const roomsRouter = require("./modules/rooms/rooms.route");
+const invitesRouter = require("./modules/invites/invites.route");
+const itineraryRouter = require("./modules/itinerary/itinerary.route");
+const roomChecklistRouter = require("./modules/rooms/roomChecklist.route");
+const roomPlacesRouter = require("./modules/places/roomPlaces.route");
+const roomChangeLogRouter = require("./modules/rooms/roomChangeLog.route");
 const userRouter = require("./modules/user/user.route");
 const likeRouter = require("./modules/interaction/like.route");
 const placesRouter = require("./modules/places/places.route");
@@ -35,6 +41,12 @@ app.use(
 
 app.use("/api/auth", authRouter);
 app.use("/api/checklists", checklistRouter);
+app.use("/api/rooms/:roomId/itinerary", itineraryRouter);
+app.use("/api/rooms/:roomId/checklist", roomChecklistRouter);
+app.use("/api/rooms/:roomId/places", roomPlacesRouter);
+app.use("/api/rooms/:roomId/changelog", roomChangeLogRouter);
+app.use("/api/rooms", roomsRouter);
+app.use("/api/invites", invitesRouter);
 app.use("/api/posts", postRouters);
 app.use("/api", require("./modules/interaction/comment.route")); // 댓글 라우터 추가
 app.use("/api/user", userRouter);

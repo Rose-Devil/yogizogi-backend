@@ -74,6 +74,10 @@ const config = {
     maxTries: parseInt(process.env.OTP_MAX_TRIES ?? 5, 10),
   },
 
+  invites: {
+    secret: process.env.INVITE_SECRET,
+  },
+
   smtp: {
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT ?? 465, 10),

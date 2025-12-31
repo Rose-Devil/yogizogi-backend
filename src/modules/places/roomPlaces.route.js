@@ -1,0 +1,14 @@
+const express = require("express");
+const { authGuard } = require("../../common/middleware/authGuard");
+const { requireRoomRole } = require("../rooms/rooms.middleware");
+const controller = require("./roomPlaces.controller");
+
+const router = express.Router({ mergeParams: true });
+
+router.use(authGuard);
+
+router.get("/", requireRoomRole("VIEWER"), controller.list);
+router.post("/", requireRoomRole("EDITOR"), controller.upsert);
+
+module.exports = router;
+
