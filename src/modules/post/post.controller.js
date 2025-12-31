@@ -91,9 +91,17 @@ exports.createPost = async (req, res, next) => {
 
     const { author_id: ignoredAuthorId, ...restBody } = req.body;
 
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      console.error("[게시글 작성 실패] 인증이 필요합니다. req.user:", req.user);
+      return error(res, "인증이 필요합니다.", 401);
+    }
+
+    console.log(`[게시글 작성] author_id: ${req.user.id}, title: ${req.body.title}`);
+
     const body = {
       ...restBody,
-      author_id: req.user?.id,
+      author_id: req.user.id,
       tags: parseTags(req.body.tags),
     };
 

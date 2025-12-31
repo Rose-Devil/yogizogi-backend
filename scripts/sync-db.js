@@ -1,8 +1,12 @@
 const { sequelize } = require("../src/config/db");
-// 중요: 모델들을 모두 불러과야 매핑이 됨
+// 중요: 모델들을 모두 불러와야 매핑이 됨
 const Comment = require("../src/modules/interaction/comment.model");
 const TravelPost = require("../src/modules/post/travelPost.model");
 const User = require("../src/modules/user/user.model");
+const PostLike = require("../src/modules/post/postLike.model");
+const PostImage = require("../src/modules/post/postImage.model");
+const Tag = require("../src/modules/post/tag.model");
+const PostTag = require("../src/modules/post/postTag.model");
 
 async function sync() {
     try {
