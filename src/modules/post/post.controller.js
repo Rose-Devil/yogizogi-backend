@@ -123,6 +123,21 @@ exports.createPost = async (req, res, next) => {
  */
 exports.updatePost = async (req, res, next) => {
   try {
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      return error(res, "인증이 필요합니다.", 401);
+    }
+
+    // 게시글 작성자 확인
+    const post = await postService.getPostById(req.params.id);
+    if (!post) {
+      return error(res, "게시글을 찾을 수 없습니다.", 404);
+    }
+
+    if (post.author_id !== req.user.id) {
+      return error(res, "본인의 게시글만 수정할 수 있습니다.", 403);
+    }
+
     const updatedPost = await postService.updatePost(req.params.id, req.body);
     return success(res, updatedPost, "게시글 수정 완료");
   } catch (err) {
@@ -135,6 +150,21 @@ exports.updatePost = async (req, res, next) => {
  */
 exports.deletePost = async (req, res, next) => {
   try {
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      return error(res, "인증이 필요합니다.", 401);
+    }
+
+    // 게시글 작성자 확인
+    const post = await postService.getPostById(req.params.id);
+    if (!post) {
+      return error(res, "게시글을 찾을 수 없습니다.", 404);
+    }
+
+    if (post.author_id !== req.user.id) {
+      return error(res, "본인의 게시글만 삭제할 수 있습니다.", 403);
+    }
+
     await postService.deletePost(req.params.id);
     return success(res, null, "게시글 삭제 완료");
   } catch (err) {
