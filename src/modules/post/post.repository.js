@@ -3,12 +3,13 @@
 const { TravelPost, PostImage, Tag, PostTag } = require("./models");
 const { Op } = require("sequelize");
 const sequelize = require("../../config/db");
+const { pool } = require("../../config/db");
 
 /**
  * 게시글 목록 조회 (페이지네이션 + 필터)
  */
 exports.findAllPosts = async (where, order, limit, offset) => {
-  return await TravelPost.findAndCountAll({
+  const result = await TravelPost.findAndCountAll({
     where,
     include: [
       {
@@ -29,7 +30,13 @@ exports.findAllPosts = async (where, order, limit, offset) => {
     limit,
     offset,
     distinct: true,
+    raw: false, // Sequelize 인스턴스로 반환 (나중에 plain object로 변환)
   });
+
+  // 작성자 정보 추가 (plain object로 변환하면서)
+  result.rows = await enrichPostsWithAuthor(result.rows);
+
+  return result;
 };
 
 /**
@@ -73,25 +80,212 @@ exports.findAllPostsByCursor = async (where, order, limit, cursor) => {
     posts.pop(); // 마지막 하나 제거
   }
 
+  // 작성자 정보 추가
+  const enrichedPosts = await enrichPostsWithAuthor(posts);
+
   // 다음 cursor 계산 (마지막 게시글의 created_at)
   let nextCursor = null;
-  if (posts.length > 0) {
-    const lastPost = posts[posts.length - 1];
+  if (enrichedPosts.length > 0) {
+    const lastPost = enrichedPosts[enrichedPosts.length - 1];
     nextCursor = lastPost.created_at.toISOString();
   }
 
   return {
-    posts,
+    posts: enrichedPosts,
     hasNextPage,
     nextCursor,
   };
 };
 
 /**
+ * 작성자 정보 조회 (User 테이블에서)
+ */
+async function getAuthorInfo(authorId) {
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, nickname, profile_image_url FROM `User` WHERE id = ? LIMIT 1",
+      [authorId]
+    );
+    if (rows.length === 0) {
+      console.log(
+        `[작성자 정보 조회] 사용자를 찾을 수 없음: authorId=${authorId}`
+      );
+      return { id: authorId, nickname: "작성자", profile_image_url: null };
+    }
+
+    const user = rows[0];
+    // profile_image_url이 null이거나 빈 문자열이면 null로 처리
+    let profileImageUrl =
+      user.profile_image_url && user.profile_image_url.trim() !== ""
+        ? user.profile_image_url
+        : null;
+
+    // 상대 경로인 경우 S3 URL로 변환 (S3 버킷 URL 추가)
+    if (profileImageUrl && profileImageUrl.startsWith("/uploads/")) {
+      // S3 버킷 URL로 변환
+      const bucketName = process.env.AWS_BUCKET_NAME;
+      const region = process.env.AWS_REGION || "ap-northeast-2";
+      // S3 URL 형식: https://{bucket}.s3.{region}.amazonaws.com/{key}
+      const s3Key = profileImageUrl.replace(/^\/uploads\//, "");
+      profileImageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+      console.log(
+        `[프로필 이미지 경로 변환] 상대 경로 -> S3 URL: ${user.profile_image_url} -> ${profileImageUrl}`
+      );
+    }
+
+    console.log(
+      `[작성자 정보 조회] authorId=${authorId}, nickname=${user.nickname}, profile_image_url=${user.profile_image_url} -> ${profileImageUrl}`
+    );
+
+    return {
+      id: user.id,
+      nickname: user.nickname || "작성자",
+      profile_image_url: profileImageUrl,
+    };
+  } catch (error) {
+    console.error(`[작성자 정보 조회 실패] authorId=${authorId}:`, error);
+    return { id: authorId, nickname: "작성자", profile_image_url: null };
+  }
+}
+
+/**
+ * 게시글에 작성자 정보 추가
+ */
+async function enrichPostWithAuthor(post) {
+  if (!post || !post.author_id) {
+    console.log(`[작성자 정보 추가 실패] post가 없거나 author_id가 없음:`, {
+      post: post ? { id: post.id, author_id: post.author_id } : null,
+    });
+    return post;
+  }
+
+  // Sequelize 모델을 plain object로 변환
+  const postData = post.get ? post.get({ plain: true }) : post;
+
+  console.log(
+    `[작성자 정보 조회 시작] postId: ${postData.id}, authorId: ${
+      postData.author_id
+    }, authorId 타입: ${typeof postData.author_id}`
+  );
+
+  const authorInfo = await getAuthorInfo(postData.author_id);
+
+  // plain object에 작성자 정보 추가
+  postData.author_id = authorInfo.id;
+  postData.author_name = authorInfo.nickname;
+  postData.author_avatar = authorInfo.profile_image_url || null;
+
+  console.log(
+    `[작성자 정보 추가 완료] postId: ${postData.id}, authorId: ${
+      authorInfo.id
+    }, nickname: ${authorInfo.nickname}, avatar: ${
+      authorInfo.profile_image_url || "null"
+    }`
+  );
+  console.log(
+    `[최종 반환 데이터] postData.author_name: ${postData.author_name}, postData.author_avatar: ${postData.author_avatar}`
+  );
+
+  return postData;
+}
+
+/**
+ * 게시글 배열에 작성자 정보 추가
+ */
+async function enrichPostsWithAuthor(posts) {
+  if (!Array.isArray(posts)) return posts;
+
+  const authorIds = [...new Set(posts.map((p) => p.author_id).filter(Boolean))];
+  const authorMap = new Map();
+
+  // 모든 작성자 정보를 한 번에 조회
+  if (authorIds.length > 0) {
+    try {
+      const placeholders = authorIds.map(() => "?").join(",");
+      const [rows] = await pool.query(
+        `SELECT id, nickname, profile_image_url FROM \`User\` WHERE id IN (${placeholders})`,
+        authorIds
+      );
+      rows.forEach((row) => {
+        let profileImageUrl = row.profile_image_url;
+
+        // 상대 경로인 경우 S3 URL로 변환
+        if (profileImageUrl && profileImageUrl.startsWith("/uploads/")) {
+          const bucketName = process.env.AWS_BUCKET_NAME;
+          const region = process.env.AWS_REGION || "ap-northeast-2";
+          const s3Key = profileImageUrl.replace(/^\/uploads\//, "");
+          profileImageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+        }
+
+        authorMap.set(row.id, {
+          id: row.id,
+          nickname: row.nickname,
+          profile_image_url: profileImageUrl,
+        });
+      });
+    } catch (error) {
+      console.error("작성자 정보 일괄 조회 실패:", error);
+    }
+  }
+
+  // 각 게시글에 작성자 정보 추가
+  return posts.map((post) => {
+    if (!post || !post.author_id) {
+      // Sequelize 모델을 plain object로 변환
+      const postData = post.get ? post.get({ plain: true }) : post;
+      console.log(
+        `[작성자 정보 추가 실패] postId: ${postData?.id}, author_id가 없음`
+      );
+      return postData;
+    }
+
+    // Sequelize 모델을 plain object로 변환
+    const postData = post.get ? post.get({ plain: true }) : post;
+
+    // author_id 타입 확인 (숫자로 변환 필요할 수 있음)
+    const authorId = Number(postData.author_id);
+    if (isNaN(authorId)) {
+      console.error(
+        `[작성자 정보 추가 실패] postId: ${postData.id}, 유효하지 않은 author_id: ${postData.author_id}`
+      );
+    }
+
+    const authorInfo = authorMap.get(authorId) || {
+      id: authorId,
+      nickname: "작성자",
+      profile_image_url: null,
+    };
+
+    // authorMap에 없으면 기본값 사용 (로그 출력)
+    if (!authorMap.has(authorId)) {
+      console.log(
+        `[작성자 정보 없음] postId: ${postData.id}, authorId: ${authorId}에 해당하는 사용자를 찾을 수 없음. 기본값 사용.`
+      );
+    }
+
+    postData.author_id = authorInfo.id;
+    postData.author_name = authorInfo.nickname;
+    postData.author_avatar = authorInfo.profile_image_url || null;
+
+    if (postData.id) {
+      console.log(
+        `[작성자 정보 추가] postId: ${postData.id}, authorId: ${
+          authorInfo.id
+        }, nickname: ${authorInfo.nickname}, avatar: ${
+          authorInfo.profile_image_url || "null"
+        }`
+      );
+    }
+
+    return postData;
+  });
+}
+
+/**
  * 게시글 상세 조회
  */
 exports.findPostById = async (id) => {
-  return await TravelPost.findOne({
+  const post = await TravelPost.findOne({
     where: { id, is_deleted: false },
     include: [
       {
@@ -108,6 +302,11 @@ exports.findPostById = async (id) => {
       },
     ],
   });
+
+  if (!post) return null;
+
+  // 작성자 정보 추가
+  return await enrichPostWithAuthor(post);
 };
 
 /**
@@ -159,7 +358,7 @@ exports.incrementViewCount = async (id) => {
  * 인기 게시글 조회 (페이지네이션 지원)
  */
 exports.findPopularPosts = async (limit, offset) => {
-  return await TravelPost.findAndCountAll({
+  const result = await TravelPost.findAndCountAll({
     where: { is_deleted: false },
     include: [
       {
@@ -185,13 +384,18 @@ exports.findPopularPosts = async (limit, offset) => {
     offset,
     distinct: true,
   });
+
+  // 작성자 정보 추가
+  result.rows = await enrichPostsWithAuthor(result.rows);
+
+  return result;
 };
 
 /**
  * 지역별 게시글 조회
  */
 exports.findPostsByRegion = async (region, limit, offset) => {
-  return await TravelPost.findAndCountAll({
+  const result = await TravelPost.findAndCountAll({
     where: { region, is_deleted: false },
     include: [
       {
@@ -213,13 +417,18 @@ exports.findPostsByRegion = async (region, limit, offset) => {
     offset,
     distinct: true,
   });
+
+  // 작성자 정보 추가
+  result.rows = await enrichPostsWithAuthor(result.rows);
+
+  return result;
 };
 
 /**
  * 태그로 게시글 검색
  */
 exports.findPostsByTag = async (tagName, limit, offset) => {
-  return await TravelPost.findAndCountAll({
+  const result = await TravelPost.findAndCountAll({
     where: { is_deleted: false },
     include: [
       {
@@ -243,6 +452,11 @@ exports.findPostsByTag = async (tagName, limit, offset) => {
     offset,
     distinct: true,
   });
+
+  // 작성자 정보 추가
+  result.rows = await enrichPostsWithAuthor(result.rows);
+
+  return result;
 };
 
 // ===== PostImage 관련 =====
