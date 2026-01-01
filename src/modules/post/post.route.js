@@ -23,7 +23,15 @@ router.post(
 );
 
 router.get("/:id", postController.getPostById);
-router.put("/:id", authGuard, postController.updatePost);
+router.put(
+  "/:id",
+  authGuard,
+  postImagesUpload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "images", maxCount: 6 },
+  ]),
+  postController.updatePost
+);
 router.delete("/:id", authGuard, postController.deletePost);
 
 // ===== 이미지 =====
