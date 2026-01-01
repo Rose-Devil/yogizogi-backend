@@ -22,7 +22,7 @@ class ContentModerationService {
     };
 
     // 검열 제외 단어 목록 (은어, 특수 용어 등)
-    this.whitelist = ["샤갈"];
+    this.whitelist = ["샤갈", "쌰갈", "쌰깔"];
 
     // 한국어 욕설 블랙리스트 (OpenAI가 감지하지 못하는 한국어 욕설 직접 필터링)
     // 주의: 일반적인 단어가 포함되지 않도록 정확하게 작성
