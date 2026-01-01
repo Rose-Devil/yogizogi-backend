@@ -1,54 +1,80 @@
 // src/modules/user/user.repository.js
 
-let users = [
-  {
-    id: 1,
-    name: "홍길동",
-    nickname: "gildong",
-    email: "test@test.com",
-    bio: "로컬 테스트 유저",
-  },
-];
-
-let posts = [
-  { id: 1, user_id: 1, title: "첫 번째 글" },
-  { id: 2, user_id: 1, title: "두 번째 글" },
-];
-
-let comments = [
-  { id: 1, user_id: 1, post_id: 1, content: "좋은 글이네요" },
-  { id: 2, user_id: 1, post_id: 2, content: "동의합니다" },
-];
+const { TravelPost } = require("../post/models");
+const { pool } = require("../../config/db");
 
 const getUserInfo = async (userId) => {
-  return users.find((u) => u.id === userId);
+  const [rows] = await pool.query(
+    "SELECT id, email, nickname, bio FROM User WHERE id = ? LIMIT 1",
+    [userId]
+  );
+  return rows[0] || null;
 };
 
 const getMyPosts = async (userId) => {
-  return posts.filter((p) => p.user_id === userId);
+  // 실제 DB에서 사용자의 게시글 조회
+  const posts = await TravelPost.findAll({
+    where: {
+      author_id: userId,
+      is_deleted: false,
+    },
+    order: [["created_at", "DESC"]],
+    attributes: [
+      "id",
+      "title",
+      "region",
+      "thumbnail_url",
+      "view_count",
+      "created_at",
+    ],
+  });
+
+  return posts.map((post) => post.toJSON());
 };
 
 const getMyComments = async (userId) => {
-  return comments.filter((c) => c.user_id === userId);
+  const Comment = require("../interaction/comment.model");
+  const comments = await Comment.findAll({
+    where: {
+      author_id: userId,
+    },
+    order: [["created_at", "DESC"]],
+    attributes: ["id", "post_id", "content", "created_at"],
+  });
+
+  return comments.map((comment) => comment.toJSON());
 };
 
 const deleteMyPost = async (userId, postId) => {
-  const index = posts.findIndex(
-    (p) => p.id === Number(postId) && p.user_id === userId
-  );
-  if (index === -1) return false;
+  // 실제 DB에서 게시글 삭제 (소프트 삭제)
+  const post = await TravelPost.findOne({
+    where: {
+      id: postId,
+      author_id: userId,
+      is_deleted: false,
+    },
+  });
 
-  posts.splice(index, 1);
+  if (!post) return false;
+
+  await post.update({ is_deleted: true });
   return true;
 };
 
 const deleteMyComment = async (userId, commentId) => {
-  const index = comments.findIndex(
-    (c) => c.id === Number(commentId) && c.user_id === userId
-  );
-  if (index === -1) return false;
+  const Comment = require("../interaction/comment.model");
+  
+  // 실제 DB에서 댓글 삭제
+  const comment = await Comment.findOne({
+    where: {
+      id: commentId,
+      author_id: userId,
+    },
+  });
 
-  comments.splice(index, 1);
+  if (!comment) return false;
+
+  await comment.destroy();
   return true;
 };
 

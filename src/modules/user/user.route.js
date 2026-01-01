@@ -5,18 +5,20 @@ const {
   deleteMyPost,
   deleteMyComment,
   updateProfileSettings,
+  getUserProfile,
 } = require("./user.controller");
 
 const router = express.Router();
 
-router.use(authGuard);
-
-// 조회
-router.get("/me", getMyPage);
+// 인증 필요한 라우트 (먼저 정의)
+router.get("/me", authGuard, getMyPage);
 
 // 삭제
-router.delete("/me/posts/:postId", deleteMyPost);
-router.delete("/me/comments/:commentId", deleteMyComment);
-router.patch("/me/profile", updateProfileSettings);
+router.delete("/me/posts/:postId", authGuard, deleteMyPost);
+router.delete("/me/comments/:commentId", authGuard, deleteMyComment);
+router.patch("/me/profile", authGuard, updateProfileSettings);
+
+// 공개 프로필 조회 (인증 불필요, /me보다 뒤에 정의)
+router.get("/:userId", getUserProfile);
 
 module.exports = router;
