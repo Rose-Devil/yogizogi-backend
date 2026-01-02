@@ -10,6 +10,7 @@ router.post("/", checklistController.create);
 router.post("/join", checklistController.join);
 
 router.get("/:id", checklistController.detail);
+router.patch("/:id", checklistController.updateChecklist);
 
 router.post("/:id/items", checklistController.addItem);
 router.patch("/:id/items/:itemId", checklistController.updateItemStatus);

@@ -7,6 +7,16 @@ function emitToChecklist(req, checklistId, event, payload = {}) {
   io.to(`checklist:${checklistId}`).emit(event, { checklistId, ...payload });
 }
 
+function parseDateOnly(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return { value: null, valid: true };
+  const validFormat = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  if (!validFormat) return { value: null, valid: false };
+  const date = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return { value: null, valid: false };
+  return { value: raw, valid: true };
+}
+
 async function list(req, res, next) {
   try {
     const items = await checklistService.list(req.id);
@@ -19,9 +29,17 @@ async function list(req, res, next) {
 async function create(req, res, next) {
   const title = (req.body?.title || "").trim();
   const description = (req.body?.description || "").trim();
+  const { value: startDate, valid: startValid } = parseDateOnly(req.body?.startDate);
+  const { value: endDate, valid: endValid } = parseDateOnly(req.body?.endDate);
 
   if (!title) {
-    return res.status(400).json({ message: "제목은 필수입니다." });
+    return res.status(400).json({ message: "제목을 입력해 주세요." });
+  }
+  if (!startValid || !endValid) {
+    return res.status(400).json({ message: "여행 날짜 형식이 올바르지 않습니다." });
+  }
+  if (startDate && endDate && startDate > endDate) {
+    return res.status(400).json({ message: "시작일이 종료일보다 뒤에 있습니다." });
   }
 
   try {
@@ -29,6 +47,8 @@ async function create(req, res, next) {
       userId: req.id,
       title,
       description: description || null,
+      startDate,
+      endDate,
     });
     return res.status(201).json({ id });
   } catch (err) {
@@ -39,7 +59,7 @@ async function create(req, res, next) {
 async function join(req, res, next) {
   const inviteCode = (req.body?.inviteCode || "").trim();
   if (!inviteCode) {
-    return res.status(400).json({ message: "inviteCode는 필수입니다." });
+    return res.status(400).json({ message: "inviteCode가 필요합니다." });
   }
 
   try {
@@ -49,7 +69,7 @@ async function join(req, res, next) {
     });
 
     if (!checklistId) {
-      return res.status(404).json({ message: "유효하지 않은 초대코드입니다." });
+      return res.status(404).json({ message: "유효하지 않은 초대 코드입니다." });
     }
 
     emitToChecklist(req, checklistId, "members:changed");
@@ -64,9 +84,7 @@ async function detail(req, res, next) {
   try {
     const data = await checklistService.detail({ id: checklistId, userId: req.id });
     if (!data) {
-      return res
-        .status(404)
-        .json({ message: "체크리스트를 찾을 수 없습니다." });
+      return res.status(404).json({ message: "체크리스트를 찾을 수 없습니다." });
     }
 
     const locations =
@@ -81,6 +99,35 @@ async function detail(req, res, next) {
   }
 }
 
+async function updateChecklist(req, res, next) {
+  const checklistId = req.params.id;
+  const { value: startDate, valid: startValid } = parseDateOnly(req.body?.startDate);
+  const { value: endDate, valid: endValid } = parseDateOnly(req.body?.endDate);
+
+  if (!startValid || !endValid) {
+    return res.status(400).json({ message: "여행 날짜 형식이 올바르지 않습니다." });
+  }
+  if (startDate && endDate && startDate > endDate) {
+    return res.status(400).json({ message: "시작일이 종료일보다 뒤에 있습니다." });
+  }
+
+  try {
+    const ok = await checklistService.updateDates({
+      checklistId,
+      userId: req.id,
+      startDate,
+      endDate,
+    });
+
+    if (!ok) return res.status(403).json({ message: "권한이 없습니다." });
+
+    emitToChecklist(req, checklistId, "checklist:changed");
+    return res.status(204).end();
+  } catch (err) {
+    return next(err);
+  }
+}
+
 async function addItem(req, res, next) {
   const checklistId = req.params.id;
   const name = (req.body?.name || "").trim();
@@ -88,7 +135,7 @@ async function addItem(req, res, next) {
   const quantity = Number.parseInt(req.body?.quantity, 10) || 1;
 
   if (!name) {
-    return res.status(400).json({ message: "아이템 이름은 필수입니다." });
+    return res.status(400).json({ message: "이름을 입력해 주세요." });
   }
 
   try {
@@ -195,7 +242,7 @@ async function addLocation(req, res, next) {
     });
 
     if (!id) {
-      return res.status(400).json({ message: "위치를 저장할 수 없습니다." });
+      return res.status(400).json({ message: "위치를 추가할 수 없습니다." });
     }
 
     emitToChecklist(req, checklistId, "locations:changed");
@@ -270,6 +317,7 @@ module.exports = {
   create,
   join,
   detail,
+  updateChecklist,
   addItem,
   updateItemStatus,
   removeItem,

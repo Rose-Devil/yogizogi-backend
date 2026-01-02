@@ -30,6 +30,8 @@ async function list(userId) {
           r.name AS title,
           r.description,
           r.invite_code AS inviteCode,
+          r.start_date AS startDate,
+          r.end_date AS endDate,
           r.created_at AS createdAt,
           (SELECT COUNT(*) FROM \`ChecklistItem\` i WHERE i.room_id = r.id) AS itemCount,
           (SELECT COUNT(*) FROM \`ChecklistMember\` m WHERE m.room_id = r.id) AS members
@@ -46,7 +48,7 @@ async function list(userId) {
   }
 }
 
-async function create({ userId, title, description }) {
+async function create({ userId, title, description, startDate, endDate }) {
   const conn = await pool.getConnection();
   try {
     let inviteCode = null;
@@ -57,9 +59,9 @@ async function create({ userId, title, description }) {
       try {
         const [result] = await conn.query(
           `INSERT INTO \`ChecklistRoom\`
-            (owner_id, name, description, invite_code)
-           VALUES (?, ?, ?, ?)`,
-          [userId, title, description ?? null, inviteCode]
+            (owner_id, name, description, invite_code, start_date, end_date)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [userId, title, description ?? null, inviteCode, startDate ?? null, endDate ?? null]
         );
 
         insertId = result.insertId;
@@ -128,6 +130,8 @@ async function detail({ id, userId }) {
           name AS title,
           description,
           invite_code AS inviteCode,
+          start_date AS startDate,
+          end_date AS endDate,
           created_at AS createdAt
        FROM \`ChecklistRoom\`
        WHERE id = ?`,
@@ -162,6 +166,25 @@ async function detail({ id, userId }) {
     );
 
     return { checklist, items, members };
+  } finally {
+    conn.release();
+  }
+}
+
+async function updateDates({ checklistId, userId, startDate, endDate }) {
+  const conn = await pool.getConnection();
+  try {
+    const allowed = await isMember({ checklistId, userId });
+    if (!allowed) return false;
+
+    const [result] = await conn.query(
+      `UPDATE \`ChecklistRoom\`
+       SET start_date = ?, end_date = ?
+       WHERE id = ?`,
+      [startDate ?? null, endDate ?? null, checklistId]
+    );
+
+    return result.affectedRows > 0;
   } finally {
     conn.release();
   }
@@ -403,6 +426,7 @@ module.exports = {
   addItem,
   updateItemStatus,
   removeItem,
+  updateDates,
   listLocations,
   addLocation,
   removeLocation,
