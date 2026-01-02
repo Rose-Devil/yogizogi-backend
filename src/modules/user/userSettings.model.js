@@ -7,14 +7,31 @@ const { pool } = require("../../config/db.js");
 const getProfileSettings = async (userId) => {
   const [rows] = await pool.query(
     `
-    SELECT id, email, nickname, bio
+    SELECT id, email, nickname, bio, profile_image_url, created_at
     FROM User
     WHERE id = ?
     `,
     [userId]
   );
 
-  return rows[0] || null;
+  if (rows.length === 0) return null;
+
+  const user = rows[0];
+  
+  // 프로필 이미지 URL 처리 (상대 경로를 S3 URL로 변환)
+  let profileImageUrl = user.profile_image_url;
+  if (profileImageUrl && profileImageUrl.startsWith("/uploads/")) {
+    const bucketName = process.env.AWS_BUCKET_NAME;
+    const region = process.env.AWS_REGION || "ap-northeast-2";
+    const s3Key = profileImageUrl.replace(/^\/uploads\//, "");
+    profileImageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+  }
+
+  return {
+    ...user,
+    image: profileImageUrl,
+    profile_image_url: profileImageUrl,
+  };
 };
 
 const findUserIdByEmail = async (email) => {

@@ -91,9 +91,17 @@ exports.createPost = async (req, res, next) => {
 
     const { author_id: ignoredAuthorId, ...restBody } = req.body;
 
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      console.error("[게시글 작성 실패] 인증이 필요합니다. req.user:", req.user);
+      return error(res, "인증이 필요합니다.", 401);
+    }
+
+    console.log(`[게시글 작성] author_id: ${req.user.id}, title: ${req.body.title}`);
+
     const body = {
       ...restBody,
-      author_id: req.user?.id,
+      author_id: req.user.id,
       tags: parseTags(req.body.tags),
     };
 
@@ -115,7 +123,46 @@ exports.createPost = async (req, res, next) => {
  */
 exports.updatePost = async (req, res, next) => {
   try {
-    const updatedPost = await postService.updatePost(req.params.id, req.body);
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      return error(res, "인증이 필요합니다.", 401);
+    }
+
+    // 게시글 작성자 확인
+    const existingPost = await postService.getPostById(req.params.id);
+    if (!existingPost) {
+      return error(res, "게시글을 찾을 수 없습니다.", 404);
+    }
+
+    if (existingPost.author_id !== req.user.id) {
+      return error(res, "본인의 게시글만 수정할 수 있습니다.", 403);
+    }
+
+    // FormData에서 파일 처리
+    const thumbnailFile = req.files?.thumbnail?.[0] ?? null;
+    const imageFiles = req.files?.images ?? [];
+
+    // S3 location 사용
+    const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
+    const imageUrls = imageFiles.map((file) => file.location);
+
+    // req.body에서 데이터 추출
+    const updateData = {
+      ...req.body,
+      tags: parseTags(req.body.tags),
+    };
+
+    // 썸네일이 업로드된 경우
+    if (thumbnailUrl) {
+      updateData.thumbnail_url = thumbnailUrl;
+    }
+
+    // 이미지가 업로드된 경우 (기존 이미지 삭제 후 새 이미지 추가)
+    if (imageUrls.length > 0) {
+      updateData.imageUrls = imageUrls;
+    }
+
+    const updatedPost = await postService.updatePost(req.params.id, updateData);
     return success(res, updatedPost, "게시글 수정 완료");
   } catch (err) {
     next(err);
@@ -127,6 +174,21 @@ exports.updatePost = async (req, res, next) => {
  */
 exports.deletePost = async (req, res, next) => {
   try {
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      return error(res, "인증이 필요합니다.", 401);
+    }
+
+    // 게시글 작성자 확인
+    const post = await postService.getPostById(req.params.id);
+    if (!post) {
+      return error(res, "게시글을 찾을 수 없습니다.", 404);
+    }
+
+    if (post.author_id !== req.user.id) {
+      return error(res, "본인의 게시글만 삭제할 수 있습니다.", 403);
+    }
+
     await postService.deletePost(req.params.id);
     return success(res, null, "게시글 삭제 완료");
   } catch (err) {

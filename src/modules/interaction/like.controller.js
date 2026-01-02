@@ -1,6 +1,6 @@
 // 좋아요 컨트롤러
 const likeService = require("./like.service");
-const { success } = require("../../common/utils/response");
+const { success, error } = require("../../common/utils/response");
 
 
 
@@ -10,7 +10,13 @@ const { success } = require("../../common/utils/response");
 exports.toggleLike = async (req, res, next) => {
   try {
     const postId = req.params.id;
-    const userId = req.user?.id || 1; // fallback for unauthenticated requests
+    
+    // 인증된 사용자 ID 확인
+    if (!req.user || !req.user.id) {
+      return error(res, "인증이 필요합니다.", 401);
+    }
+    
+    const userId = req.user.id;
 
     try {
       // 좋아요 추가 시도
@@ -35,7 +41,9 @@ exports.toggleLike = async (req, res, next) => {
 exports.getLikeState = async (req, res, next) => {
   try {
     const postId = req.params.id;
-    const userId = req.user?.id || 1; // fallback for unauthenticated requests
+    
+    // 인증된 사용자 ID 확인 (선택적 - 비로그인 사용자도 조회 가능하게 하려면 주석 처리)
+    const userId = req.user?.id || null;
 
     const result = await likeService.getLikeCount(postId, userId);
     return success(res, result, "좋아요 상태 조회 성공");

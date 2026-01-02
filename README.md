@@ -1,6 +1,6 @@
 # Yogizogi Backend (`yogizogi-backend`)
 
-여기저기(Yogizogi) 서비스의 **백엔드 서버**입니다.  
+요기조기(Yogizogi) 서비스의 **백엔드 서버**입니다.  
 Node.js + Express + Sequelize(MySQL) 기반으로 구축되었습니다.
 
 ---

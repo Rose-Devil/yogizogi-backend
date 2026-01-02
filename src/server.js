@@ -13,12 +13,16 @@ const { createWsServer } = require("./ws/server");
   try {
     await checkDbConnection();
 
-    const server = http.createServer(app);
-    createWsServer({ httpServer: server, path: "/ws" });
+    // 서버 시작 시 좋아요 수 동기화 (한 번만 실행)
+    const { syncLikeCounts } = require("./scripts/sync-like-counts");
+    try {
+      await syncLikeCounts();
+    } catch (syncError) {
+      console.warn("좋아요 수 동기화 중 오류 발생 (서버는 계속 실행됩니다):", syncError.message);
+    }
 
-    server.listen(port, () => {
-      console.log(`Server listening on http://localhost:${port}`);
-      console.log(`WS listening on ws://localhost:${port}/ws`);
+    app.listen(port, () => {
+      console.log(`🚀 Server listening on http://localhost:${port}`);
     });
   } catch (error) {
     console.error("Server startup failed:", error);

@@ -50,9 +50,25 @@ const updateProfileSettings = async (req, res, next) => {
   }
 };
 
+// 특정 사용자 프로필 조회 (인증 불필요)
+const getUserProfile = async (req, res, next) => {
+  try {
+    const targetUserId = parseInt(req.params.userId);
+    if (!targetUserId || isNaN(targetUserId)) {
+      return res.status(400).json({ success: false, message: "유효하지 않은 사용자 ID입니다." });
+    }
+
+    const data = await userService.getUserProfile(targetUserId);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMyPage,
   deleteMyPost,
   deleteMyComment,
   updateProfileSettings,
+  getUserProfile,
 };

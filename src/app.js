@@ -52,6 +52,7 @@ app.use("/api", require("./modules/interaction/comment.route")); // 댓글 라�
 app.use("/api/user", userRouter);
 app.use("/api", likeRouter);
 app.use("/api", placesRouter);
+app.use("/api/ai", require("./modules/ai/mz.route")); // MZ 변환 라우터 추가
 
 app.get("/", (req, res) => {
   res.json({ message: "Yogizogi Backend API" });

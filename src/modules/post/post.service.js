@@ -105,6 +105,17 @@ exports.createPost = async (postData, imageUrls = []) => {
     };
   }
 
+  // 콘텐츠 검열 (욕설, 비방 등 부적절한 내용 검사)
+  const contentModeration = require("./content-moderation.service");
+  const moderationResult = await contentModeration.moderatePost(title, content);
+  
+  if (moderationResult.flagged) {
+    throw {
+      statusCode: 400,
+      message: moderationResult.reason || "부적절한 표현이 포함되어 있습니다. 수정 후 다시 시도해주세요.",
+    };
+  }
+
   // 게시글 생성
   const newPost = await postRepository.createPost({
     author_id,
@@ -164,10 +175,55 @@ exports.updatePost = async (id, updateData) => {
   delete updateData.comment_count;
   delete updateData.created_at;
 
+  // 제목이나 내용이 변경되는 경우 검열
+  if (updateData.title || updateData.content) {
+    // 기존 게시글 정보 가져오기
+    const existingPost = await postRepository.findPostById(id);
+    if (!existingPost) {
+      throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+    }
+
+    // 변경될 제목과 내용 (없으면 기존 값 사용)
+    const title = updateData.title || existingPost.title || "";
+    const content = updateData.content || existingPost.content || "";
+
+    // 콘텐츠 검열
+    const contentModeration = require("./content-moderation.service");
+    const moderationResult = await contentModeration.moderatePost(title, content);
+    
+    if (moderationResult.flagged) {
+      throw {
+        statusCode: 400,
+        message: moderationResult.reason || "부적절한 표현이 포함되어 있습니다. 수정 후 다시 시도해주세요.",
+      };
+    }
+  }
+
+  // 이미지 업데이트 (imageUrls가 제공된 경우)
+  const imageUrls = updateData.imageUrls;
+  delete updateData.imageUrls;
+
   const updatedPost = await postRepository.updatePost(id, updateData);
 
   if (!updatedPost) {
     throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
+  }
+
+  // 이미지 업데이트 처리
+  if (imageUrls !== undefined && Array.isArray(imageUrls)) {
+    // 기존 이미지 모두 삭제
+    await PostImage.destroy({ where: { post_id: id } });
+
+    // 새 이미지 추가
+    if (imageUrls.length > 0) {
+      for (let i = 0; i < imageUrls.length; i += 1) {
+        await postRepository.createPostImage({
+          post_id: id,
+          image_url: imageUrls[i],
+          sort_order: i,
+        });
+      }
+    }
   }
 
   // 태그 업데이트 (tags가 제공된 경우)
