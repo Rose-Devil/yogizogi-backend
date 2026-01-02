@@ -186,6 +186,16 @@ async function enrichPostWithAuthor(post) {
     `[최종 반환 데이터] postData.author_name: ${postData.author_name}, postData.author_avatar: ${postData.author_avatar}`
   );
 
+  // ai_data 확인 로그 추가
+  if (postData.ai_data) {
+    console.log(
+      `[AI 데이터 확인] postId: ${postData.id}, ai_data 존재:`,
+      typeof postData.ai_data
+    );
+  } else {
+    console.log(`[AI 데이터 확인] postId: ${postData.id}, ai_data 없음`);
+  }
+
   return postData;
 }
 

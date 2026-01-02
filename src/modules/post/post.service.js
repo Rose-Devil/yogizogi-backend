@@ -151,6 +151,21 @@ exports.createPost = async (postData, imageUrls = []) => {
   // 태그 포함해서 다시 조회
   const createdPost = await postRepository.findPostById(newPost.id);
 
+  // AI 여행 비서 분석 트리거 (비동기 처리)
+  const aiTravelAssistant = require("./ai-travel-assistant.service");
+  aiTravelAssistant
+    .analyzePost(title, content, region, start_date, end_date)
+    .then(async (aiData) => {
+      if (aiData) {
+        // AI 분석 결과를 DB에 저장
+        await postRepository.updatePost(newPost.id, { ai_data: aiData });
+        console.log("✅ AI 여행 비서 분석 결과 저장 완료");
+      }
+    })
+    .catch((err) => {
+      console.error("AI 여행 비서 분석 실패:", err);
+    });
+
   // AI 댓글 생성 트리거 (비동기 처리)
   // 오류가 발생해도 게시글 생성은 성공으로 처리하기 위해 await 하지 않거나 catch 처리
   const commentService = require("../interaction/comment.service");
