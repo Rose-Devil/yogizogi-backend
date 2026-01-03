@@ -4,6 +4,10 @@ const postRepository = require("./post.repository");
 const { TravelPost, PostImage, Tag } = require("./models");
 const { Op } = require("sequelize");
 const { sequelize } = require("../../config/db");
+const {
+  safeSyncTravelPostUpsertById,
+  safeSyncTravelPostDeleteById,
+} = require("./travelPost.esSync");
 
 // 게시글 목록 조회 (Cursor 기반 페이지네이션)
 exports.getPosts = async (queryParams) => {
@@ -150,6 +154,7 @@ exports.createPost = async (postData, imageUrls = []) => {
 
   // 태그 포함해서 다시 조회
   const createdPost = await postRepository.findPostById(newPost.id);
+  void safeSyncTravelPostUpsertById(createdPost.id, { reason: "create" });
 
   // AI 댓글 생성 트리거 (비동기 처리)
   // 오류가 발생해도 게시글 생성은 성공으로 처리하기 위해 await 하지 않거나 catch 처리
@@ -248,7 +253,9 @@ exports.updatePost = async (id, updateData) => {
   }
 
   // 태그 포함해서 다시 조회
-  return await postRepository.findPostById(id);
+  const post = await postRepository.findPostById(id);
+  void safeSyncTravelPostUpsertById(id, { reason: "update" });
+  return post;
 };
 
 // 게시글 삭제
@@ -259,6 +266,7 @@ exports.deletePost = async (id) => {
     throw { statusCode: 404, message: "게시글을 찾을 수 없습니다." };
   }
 
+  void safeSyncTravelPostDeleteById(id, { reason: "delete" });
   return deletedPost;
 };
 
@@ -364,6 +372,7 @@ exports.addTagToPost = async (postId, tagName) => {
   // 게시글에 태그 연결
   await postRepository.addTagToPost(postId, tag.id);
 
+  void safeSyncTravelPostUpsertById(postId, { reason: "tag_add" });
   return tag;
 };
 
@@ -384,6 +393,7 @@ exports.removeTagFromPost = async (postId, tagId) => {
     throw { statusCode: 404, message: "연결된 태그를 찾을 수 없습니다." };
   }
 
+  void safeSyncTravelPostUpsertById(postId, { reason: "tag_remove" });
   return { message: "태그가 제거되었습니다." };
 };
 

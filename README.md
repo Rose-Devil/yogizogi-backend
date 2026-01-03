@@ -49,11 +49,56 @@ OPENAI_API_KEY=your_openai_key
 MIN_POST_LENGTH=100       # AI 댓글 생성 최소 글자 수
 MAX_DAILY_AI_COMMENTS=50  # 하루 최대 생성 댓글 수
 AI_COMMENT_DELAY_MS=10000 # 댓글 생성 지연 시간 (ms)
+
+# Elasticsearch (Elastic Cloud) - TravelPost Sync (optional)
+# - MySQL is source of truth, ES is search replica (best-effort sync)
+# - ES_INDEX is optional (default: travel_posts_v1)
+ES_NODE=https://YOUR_DEPLOYMENT.es.ap-northeast-2.aws.elastic-cloud.com:443
+ES_API_KEY=YOUR_BASE64_API_KEY
+ES_INDEX=travel_posts_v1
 ```
 
 ---
 
-## 3. 프로젝트 구조
+## 3. Elasticsearch 동기화(TravelPost)
+
+TravelPost 생성/수정/삭제/태그 변경 시 Elasticsearch 문서를 best-effort로 동기화합니다.
+(ES 장애/권한 오류가 나도 DB 저장 결과는 유지되고, 서버 로그만 남깁니다.)
+
+### 동기화 트리거(API)
+
+- `POST /api/posts` (생성) -> upsert
+- `PUT /api/posts/:id` (수정) -> upsert
+- `DELETE /api/posts/:id` (삭제) -> delete
+- `POST /api/posts/:postId/tags` (태그 추가) -> upsert
+- `DELETE /api/posts/:postId/tags/:tagId` (태그 제거) -> upsert
+- `DELETE /api/user/me/posts/:postId` (마이페이지 글 삭제) -> delete
+
+### Kibana Dev Tools 확인 쿼리
+
+> 아래 예시는 기본 인덱스명 `travel_posts_v1` 기준입니다. (`ES_INDEX`를 설정했다면 그 값으로 바꿔서 실행)
+
+```http
+GET /_cat/indices?v
+
+GET /travel_posts_v1/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET /travel_posts_v1/_doc/123
+
+GET /travel_posts_v1/_search
+{
+  "query": {
+    "match": { "tags": "부산" }
+  }
+}
+```
+
+## 4. 프로젝트 구조
 
 ```txt
 src/
@@ -69,7 +114,7 @@ src/
 └─ server.js        # 진입점
 ```
 
-## 4. 실행 방법
+## 5. 실행 방법
 
 ```bash
 # 의존성 설치

@@ -1,5 +1,6 @@
 const userRepository = require("./user.repository");
 const userModel = require("./userSettings.model");
+const { safeSyncTravelPostDeleteById } = require("../post/travelPost.esSync");
 
 const getMyPage = async (userId) => {
   const user = await userModel.getProfileSettings(userId);
@@ -11,6 +12,7 @@ const getMyPage = async (userId) => {
 
 const deleteMyPost = async (userId, postId) => {
   const ok = await userRepository.deleteMyPost(userId, postId);
+  if (ok) void safeSyncTravelPostDeleteById(postId, { reason: "delete_my_post" });
   if (!ok) throw new Error("게시글 삭제 실패");
 };
 
