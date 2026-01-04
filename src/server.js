@@ -10,6 +10,14 @@ const app = require("./app");
   try {
     await checkDbConnection();
 
+    // 서버 시작 시 데이터베이스 마이그레이션 (is_advertisement 컬럼 추가)
+    const { addAdvertisementColumn } = require("../scripts/add-is-advertisement-column");
+    try {
+      await addAdvertisementColumn();
+    } catch (migrationError) {
+      console.warn("데이터베이스 마이그레이션 중 오류 발생 (서버는 계속 실행됩니다):", migrationError.message);
+    }
+
     // 서버 시작 시 좋아요 수 동기화 (한 번만 실행)
     const { syncLikeCounts } = require("./scripts/sync-like-counts");
     try {

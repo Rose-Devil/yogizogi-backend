@@ -11,6 +11,19 @@ exports.getPosts = async (queryParams) => {
 
   const where = { is_deleted: false };
 
+  // 광고성 게시글 필터링
+  // sort === "advertisement"일 때만 광고성 게시글 표시
+  // 그 외의 경우에는 광고성 게시글 제외
+  // 주의: 데이터베이스에 is_advertisement 컬럼이 있어야 함
+  // 컬럼이 없으면 필터링을 건너뛰고 모든 게시글 표시
+  if (sort === "advertisement") {
+    where.is_advertisement = true;
+  } else {
+    // 메인 게시판, 인기 게시글, 조회수 순 등에서는 광고성 게시글 제외
+    // 단, 컬럼이 없을 수 있으므로 에러 핸들링은 repository에서 처리
+    where.is_advertisement = false;
+  }
+
   // 지역 필터
   if (region) {
     where.region = region;
@@ -29,6 +42,9 @@ exports.getPosts = async (queryParams) => {
       ["view_count", "DESC"],
       ["created_at", "DESC"],
     ];
+  } else if (sort === "advertisement") {
+    // 광고성 게시글은 최신순으로 정렬
+    order = [["created_at", "DESC"]];
   }
 
   // 태그 검색 (태그는 아직 cursor 기반 미지원, 기존 방식 유지)
@@ -116,6 +132,12 @@ exports.createPost = async (postData, imageUrls = []) => {
     };
   }
 
+  // 광고성 게시글 검열
+  const advertisementDetection = require("./advertisement-detection.service");
+  const adDetectionResult = await advertisementDetection.detectPost(title, content);
+  
+  console.log(`[광고성 검사 결과] isAdvertisement: ${adDetectionResult.isAdvertisement}, confidence: ${(adDetectionResult.confidence * 100).toFixed(1)}%`);
+
   // 게시글 생성
   const newPost = await postRepository.createPost({
     author_id,
@@ -128,6 +150,7 @@ exports.createPost = async (postData, imageUrls = []) => {
     thumbnail_url:
       thumbnail_url ??
       (Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls[0] : null),
+    is_advertisement: adDetectionResult.isAdvertisement, // 광고성 여부 저장
   });
 
   // 태그 처리
@@ -212,6 +235,15 @@ exports.updatePost = async (id, updateData) => {
         message: moderationResult.reason || "부적절한 표현이 포함되어 있습니다. 수정 후 다시 시도해주세요.",
       };
     }
+
+    // 광고성 게시글 검열
+    const advertisementDetection = require("./advertisement-detection.service");
+    const adDetectionResult = await advertisementDetection.detectPost(title, content);
+    
+    console.log(`[광고성 검사 결과 (수정)] isAdvertisement: ${adDetectionResult.isAdvertisement}, confidence: ${(adDetectionResult.confidence * 100).toFixed(1)}%`);
+    
+    // 광고성 여부 업데이트
+    updateData.is_advertisement = adDetectionResult.isAdvertisement;
   }
 
   // 이미지 업데이트 (imageUrls가 제공된 경우)
@@ -316,7 +348,7 @@ exports.getPostsByRegion = async (region, page = 1, limit = 10) => {
 // 태그로 게시글 검색 (페이지네이션 반환 형식 통일)
 exports.findPostsByTag = async (tagName, limit, offset) => {
   const result = await TravelPost.findAndCountAll({
-    where: { is_deleted: false },
+    where: { is_deleted: false, is_advertisement: false }, // 광고성 게시글 제외
     include: [
       {
         model: Tag,

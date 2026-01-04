@@ -296,7 +296,7 @@ async function enrichPostsWithAuthor(posts) {
  */
 exports.findPostById = async (id) => {
   const post = await TravelPost.findOne({
-    where: { id, is_deleted: false },
+    where: { id, is_deleted: false }, // 상세 조회는 광고성 여부와 관계없이 조회 가능
     include: [
       {
         model: PostImage,
@@ -369,7 +369,7 @@ exports.incrementViewCount = async (id) => {
  */
 exports.findPopularPosts = async (limit, offset) => {
   const result = await TravelPost.findAndCountAll({
-    where: { is_deleted: false },
+    where: { is_deleted: false, is_advertisement: false }, // 광고성 게시글 제외
     include: [
       {
         model: PostImage,
@@ -406,7 +406,7 @@ exports.findPopularPosts = async (limit, offset) => {
  */
 exports.findPostsByRegion = async (region, limit, offset) => {
   const result = await TravelPost.findAndCountAll({
-    where: { region, is_deleted: false },
+    where: { region, is_deleted: false, is_advertisement: false }, // 광고성 게시글 제외
     include: [
       {
         model: PostImage,
@@ -439,7 +439,7 @@ exports.findPostsByRegion = async (region, limit, offset) => {
  */
 exports.findPostsByTag = async (tagName, limit, offset) => {
   const result = await TravelPost.findAndCountAll({
-    where: { is_deleted: false },
+    where: { is_deleted: false, is_advertisement: false }, // 광고성 게시글 제외
     include: [
       {
         model: Tag,
