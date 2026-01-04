@@ -200,7 +200,7 @@ exports.createPost = async (postData, imageUrls = []) => {
 };
 
 // 게시글 수정
-exports.updatePost = async (id, updateData) => {
+exports.updatePost = async (id, updateData, imageUrls = undefined) => {
   // 태그는 별도로 처리
   const tags = updateData.tags;
   delete updateData.tags;

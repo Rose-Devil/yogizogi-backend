@@ -35,7 +35,11 @@ router.put(
 router.delete("/:id", authGuard, postController.deletePost);
 
 // ===== 이미지 =====
-router.post("/images", postImagesUpload.single("image"), postController.uploadImage);
+router.post(
+  "/images",
+  postImagesUpload.single("image"),
+  postController.uploadImage
+);
 router.get("/:postId/images", postController.getImagesByPost);
 router.delete("/images/:id", postController.deleteImage);
 

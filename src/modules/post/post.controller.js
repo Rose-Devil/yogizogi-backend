@@ -165,6 +165,10 @@ exports.updatePost = async (req, res, next) => {
     const updatedPost = await postService.updatePost(req.params.id, updateData);
     return success(res, updatedPost, "게시글 수정 완료");
   } catch (err) {
+    const files = collectUploadedFiles(req);
+    if (files.length > 0) {
+      await Promise.allSettled(files.map((f) => fs.unlink(f.path)));
+    }
     next(err);
   }
 };
