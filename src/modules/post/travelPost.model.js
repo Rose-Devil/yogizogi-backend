@@ -71,6 +71,17 @@ const TravelPost = sequelize.define(
       defaultValue: false,
       comment: "소프트 삭제 여부",
     },
+    is_advertisement: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: "광고성 게시글 여부",
+    },
+    ai_data: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "AI 분석 결과 (여행글 판단, 일정, 코디 등)",
+    },
     created_at: {
       type: DataTypes.DATE(3),
       allowNull: false,

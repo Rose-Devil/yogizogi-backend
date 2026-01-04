@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "sync-likes": "node src/scripts/sync-like-counts.js"
+    "sync-likes": "node src/scripts/sync-like-counts.js",
+    "migrate:advertisement": "node scripts/add-is-advertisement-column.js"
   },
   "keywords": [],
   "author": "",

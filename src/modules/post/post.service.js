@@ -15,6 +15,19 @@ exports.getPosts = async (queryParams) => {
 
   const where = { is_deleted: false };
 
+  // 광고성 게시글 필터링
+  // sort === "advertisement"일 때만 광고성 게시글 표시
+  // 그 외의 경우에는 광고성 게시글 제외
+  // 주의: 데이터베이스에 is_advertisement 컬럼이 있어야 함
+  // 컬럼이 없으면 필터링을 건너뛰고 모든 게시글 표시
+  if (sort === "advertisement") {
+    where.is_advertisement = true;
+  } else {
+    // 메인 게시판, 인기 게시글, 조회수 순 등에서는 광고성 게시글 제외
+    // 단, 컬럼이 없을 수 있으므로 에러 핸들링은 repository에서 처리
+    where.is_advertisement = false;
+  }
+
   // 지역 필터
   if (region) {
     where.region = region;
@@ -33,6 +46,9 @@ exports.getPosts = async (queryParams) => {
       ["view_count", "DESC"],
       ["created_at", "DESC"],
     ];
+  } else if (sort === "advertisement") {
+    // 광고성 게시글은 최신순으로 정렬
+    order = [["created_at", "DESC"]];
   }
 
   // 태그 검색 (태그는 아직 cursor 기반 미지원, 기존 방식 유지)
@@ -120,6 +136,12 @@ exports.createPost = async (postData, imageUrls = []) => {
     };
   }
 
+  // 광고성 게시글 검열
+  const advertisementDetection = require("./advertisement-detection.service");
+  const adDetectionResult = await advertisementDetection.detectPost(title, content);
+  
+  console.log(`[광고성 검사 결과] isAdvertisement: ${adDetectionResult.isAdvertisement}, confidence: ${(adDetectionResult.confidence * 100).toFixed(1)}%`);
+
   // 게시글 생성
   const newPost = await postRepository.createPost({
     author_id,
@@ -132,6 +154,7 @@ exports.createPost = async (postData, imageUrls = []) => {
     thumbnail_url:
       thumbnail_url ??
       (Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls[0] : null),
+    is_advertisement: adDetectionResult.isAdvertisement, // 광고성 여부 저장
   });
 
   // 태그 처리
@@ -156,6 +179,21 @@ exports.createPost = async (postData, imageUrls = []) => {
   const createdPost = await postRepository.findPostById(newPost.id);
   void safeSyncTravelPostUpsertById(createdPost.id, { reason: "create" });
 
+  // AI 여행 비서 분석 트리거 (비동기 처리)
+  const aiTravelAssistant = require("./ai-travel-assistant.service");
+  aiTravelAssistant
+    .analyzePost(title, content, region, start_date, end_date)
+    .then(async (aiData) => {
+      if (aiData) {
+        // AI 분석 결과를 DB에 저장
+        await postRepository.updatePost(newPost.id, { ai_data: aiData });
+        console.log("✅ AI 여행 비서 분석 결과 저장 완료");
+      }
+    })
+    .catch((err) => {
+      console.error("AI 여행 비서 분석 실패:", err);
+    });
+
   // AI 댓글 생성 트리거 (비동기 처리)
   // 오류가 발생해도 게시글 생성은 성공으로 처리하기 위해 await 하지 않거나 catch 처리
   const commentService = require("../interaction/comment.service");
@@ -167,7 +205,7 @@ exports.createPost = async (postData, imageUrls = []) => {
 };
 
 // 게시글 수정
-exports.updatePost = async (id, updateData) => {
+exports.updatePost = async (id, updateData, imageUrls = undefined) => {
   // 태그는 별도로 처리
   const tags = updateData.tags;
   delete updateData.tags;
@@ -202,10 +240,20 @@ exports.updatePost = async (id, updateData) => {
         message: moderationResult.reason || "부적절한 표현이 포함되어 있습니다. 수정 후 다시 시도해주세요.",
       };
     }
+
+    // 광고성 게시글 검열
+    const advertisementDetection = require("./advertisement-detection.service");
+    const adDetectionResult = await advertisementDetection.detectPost(title, content);
+    
+    console.log(`[광고성 검사 결과 (수정)] isAdvertisement: ${adDetectionResult.isAdvertisement}, confidence: ${(adDetectionResult.confidence * 100).toFixed(1)}%`);
+    
+    // 광고성 여부 업데이트
+    updateData.is_advertisement = adDetectionResult.isAdvertisement;
   }
 
-  // 이미지 업데이트 (imageUrls가 제공된 경우)
-  const imageUrls = updateData.imageUrls;
+  // 이미지 업데이트 (updateData.imageUrls 또는 3번째 인자 imageUrls가 제공된 경우)
+  const imageUrlsToUpdate =
+    updateData.imageUrls !== undefined ? updateData.imageUrls : imageUrls;
   delete updateData.imageUrls;
 
   const updatedPost = await postRepository.updatePost(id, updateData);
@@ -215,16 +263,16 @@ exports.updatePost = async (id, updateData) => {
   }
 
   // 이미지 업데이트 처리
-  if (imageUrls !== undefined && Array.isArray(imageUrls)) {
+  if (imageUrlsToUpdate !== undefined && Array.isArray(imageUrlsToUpdate)) {
     // 기존 이미지 모두 삭제
     await PostImage.destroy({ where: { post_id: id } });
 
     // 새 이미지 추가
-    if (imageUrls.length > 0) {
-      for (let i = 0; i < imageUrls.length; i += 1) {
+    if (imageUrlsToUpdate.length > 0) {
+      for (let i = 0; i < imageUrlsToUpdate.length; i += 1) {
         await postRepository.createPostImage({
           post_id: id,
-          image_url: imageUrls[i],
+          image_url: imageUrlsToUpdate[i],
           sort_order: i,
         });
       }
@@ -309,7 +357,7 @@ exports.getPostsByRegion = async (region, page = 1, limit = 10) => {
 // 태그로 게시글 검색 (페이지네이션 반환 형식 통일)
 exports.findPostsByTag = async (tagName, limit, offset) => {
   const result = await TravelPost.findAndCountAll({
-    where: { is_deleted: false },
+    where: { is_deleted: false, is_advertisement: false }, // 광고성 게시글 제외
     include: [
       {
         model: Tag,
