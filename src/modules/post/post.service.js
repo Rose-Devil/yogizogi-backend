@@ -246,8 +246,9 @@ exports.updatePost = async (id, updateData, imageUrls = undefined) => {
     updateData.is_advertisement = adDetectionResult.isAdvertisement;
   }
 
-  // 이미지 업데이트 (imageUrls가 제공된 경우)
-  const imageUrls = updateData.imageUrls;
+  // 이미지 업데이트 (updateData.imageUrls 또는 3번째 인자 imageUrls가 제공된 경우)
+  const imageUrlsToUpdate =
+    updateData.imageUrls !== undefined ? updateData.imageUrls : imageUrls;
   delete updateData.imageUrls;
 
   const updatedPost = await postRepository.updatePost(id, updateData);
@@ -257,16 +258,16 @@ exports.updatePost = async (id, updateData, imageUrls = undefined) => {
   }
 
   // 이미지 업데이트 처리
-  if (imageUrls !== undefined && Array.isArray(imageUrls)) {
+  if (imageUrlsToUpdate !== undefined && Array.isArray(imageUrlsToUpdate)) {
     // 기존 이미지 모두 삭제
     await PostImage.destroy({ where: { post_id: id } });
 
     // 새 이미지 추가
-    if (imageUrls.length > 0) {
-      for (let i = 0; i < imageUrls.length; i += 1) {
+    if (imageUrlsToUpdate.length > 0) {
+      for (let i = 0; i < imageUrlsToUpdate.length; i += 1) {
         await postRepository.createPostImage({
           post_id: id,
-          image_url: imageUrls[i],
+          image_url: imageUrlsToUpdate[i],
           sort_order: i,
         });
       }
