@@ -1,7 +1,7 @@
 const { getEsClient } = require("../../lib/esClient");
 const { TravelPost, Tag } = require("./models");
 
-const DEFAULT_ES_INDEX = "travel_posts_v1";
+const DEFAULT_ES_INDEX = "travel_posts";
 
 function getTravelPostIndexName() {
   return process.env.ES_INDEX ?? DEFAULT_ES_INDEX;

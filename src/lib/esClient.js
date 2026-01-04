@@ -1,3 +1,18 @@
+function getFetch() {
+  if (typeof fetch === "function") return fetch;
+
+  try {
+    const nodeFetch = require("node-fetch");
+    return nodeFetch;
+  } catch {
+    const error = new Error(
+      "global.fetch is not available. Use Node 18+ or install node-fetch@2."
+    );
+    error.code = "FETCH_NOT_AVAILABLE";
+    throw error;
+  }
+}
+
 function normalizeNode(node) {
   if (!node) return null;
   return String(node).replace(/\/+$/, "");
@@ -37,6 +52,8 @@ function createEsError(message, status, body) {
 }
 
 function createEsClient({ node, apiKey }) {
+  const fetchFn = getFetch();
+
   async function request(method, path, { query, body } = {}) {
     const url = new URL(node + path);
     if (query && typeof query === "object") {
@@ -46,13 +63,24 @@ function createEsClient({ node, apiKey }) {
       });
     }
 
-    const res = await fetch(url.toString(), {
+    const headers = {
+      Authorization: `ApiKey ${apiKey}`,
+    };
+
+    let payload = undefined;
+    if (body != null) {
+      if (typeof body === "string") {
+        payload = body;
+      } else {
+        headers["Content-Type"] = "application/json";
+        payload = JSON.stringify(body);
+      }
+    }
+
+    const res = await fetchFn(url.toString(), {
       method,
-      headers: {
-        Authorization: `ApiKey ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: body == null ? undefined : JSON.stringify(body),
+      headers,
+      body: payload,
     });
 
     const responseBody = await readResponseBody(res);
@@ -71,6 +99,8 @@ function createEsClient({ node, apiKey }) {
   }
 
   return {
+    request,
+
     async ping() {
       return request("GET", "/");
     },
@@ -94,6 +124,60 @@ function createEsClient({ node, apiKey }) {
         String(id)
       )}`;
       return request("DELETE", path, { query: { refresh } });
+    },
+
+    async search({ index, body } = {}) {
+      if (!index) throw new Error("Missing required param: index");
+      const path = `/${encodeURIComponent(String(index))}/_search`;
+      return request("POST", path, { body: body ?? {} });
+    },
+
+    async bulk({ body, refresh } = {}) {
+      if (typeof body !== "string") {
+        throw new Error("bulk expects NDJSON string body");
+      }
+
+      const url = new URL(node + "/_bulk");
+      if (refresh != null) url.searchParams.set("refresh", String(refresh));
+
+      const res = await fetchFn(url.toString(), {
+        method: "POST",
+        headers: {
+          Authorization: `ApiKey ${apiKey}`,
+          "Content-Type": "application/x-ndjson",
+        },
+        body,
+      });
+
+      const responseBody = await readResponseBody(res);
+      if (!res.ok) {
+        const message =
+          (responseBody &&
+            typeof responseBody === "object" &&
+            responseBody.error &&
+            responseBody.error.type) ||
+          res.statusText ||
+          "Elasticsearch request failed";
+        throw createEsError(message, res.status, responseBody);
+      }
+
+      return responseBody;
+    },
+
+    async indicesCreate({ index, body } = {}) {
+      if (!index) throw new Error("Missing required param: index");
+      return request("PUT", `/${encodeURIComponent(String(index))}`, {
+        body: body ?? {},
+      });
+    },
+
+    async aliasesUpdate({ actions } = {}) {
+      return request("POST", "/_aliases", { body: { actions: actions ?? [] } });
+    },
+
+    async aliasGet({ name } = {}) {
+      if (!name) throw new Error("Missing required param: name");
+      return request("GET", `/_alias/${encodeURIComponent(String(name))}`);
     },
   };
 }

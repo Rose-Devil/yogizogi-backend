@@ -13,6 +13,7 @@ const checklistRouter = require("./modules/checklist/checklist.route");
 const userRouter = require("./modules/user/user.route");
 const likeRouter = require("./modules/interaction/like.route");
 const placesRouter = require("./modules/places/places.route");
+const searchRouter = require("./routes/search.route");
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api/user", userRouter);
 app.use("/api", likeRouter);
 app.use("/api", placesRouter);
 app.use("/api/ai", require("./modules/ai/mz.route"));
+app.use("/api/search", searchRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Yogizogi Backend API" });
