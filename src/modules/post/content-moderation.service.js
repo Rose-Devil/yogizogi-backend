@@ -30,6 +30,8 @@ class ContentModerationService {
       "좆",
       "좆같",
       "좆나",
+      "존나",
+      "존나게",
       "좆되",
       "좆됐",
       "좆망",
