@@ -178,6 +178,56 @@ class CommentService {
       console.error("AI 댓글 생성 중 오류:", error);
     }
   }
+
+  /**
+   * 댓글 수정
+   * @param {number} commentId
+   * @param {number} userId
+   * @param {string} content
+   */
+  async updateComment(commentId, userId, content) {
+    const comment = await Comment.findByPk(commentId);
+    if (!comment) throw new Error("댓글을 찾을 수 없습니다.");
+
+    // AI 댓글 수정 불가
+    if (comment.is_ai) throw new Error("AI 댓글은 수정할 수 없습니다.");
+
+    // 작성자 본인만 수정 가능
+    if (comment.author_id !== parseInt(userId)) {
+      throw new Error("댓글 수정 권한이 없습니다.");
+    }
+
+    comment.content = content;
+    await comment.save();
+
+    return comment;
+  }
+
+  /**
+   * 댓글 삭제
+   * @param {number} commentId
+   * @param {number} userId
+   */
+  async deleteComment(commentId, userId) {
+    const comment = await Comment.findByPk(commentId);
+    if (!comment) throw new Error("댓글을 찾을 수 없습니다.");
+
+    const post = await TravelPost.findByPk(comment.post_id);
+    if (!post) throw new Error("관련된 게시글을 찾을 수 없습니다.");
+
+    // 권한 확인: 댓글 작성자 본인 OR 게시글 작성자
+    const isCommentAuthor = comment.author_id === parseInt(userId);
+    const isPostAuthor = post.author_id === parseInt(userId);
+
+    if (!isCommentAuthor && !isPostAuthor) {
+      throw new Error("댓글 삭제 권한이 없습니다.");
+    }
+
+    await comment.destroy();
+    await post.decrement("comment_count");
+
+    return true;
+  }
 }
 
 module.exports = new CommentService();
