@@ -1,28 +1,25 @@
-const express = require("express")
-const router = express.Router()
-const { authGuard } = require("../../common/middleware/authGuard")
-const checklistController = require("./checklist.controller")
+const express = require("express");
+const router = express.Router();
+const { authGuard } = require("../../common/middleware/authGuard");
+const checklistController = require("./checklist.controller");
 
-// 인증 필요
-router.use(authGuard)
+router.use(authGuard);
 
-// 목록
-router.get("/", checklistController.list)
+router.get("/", checklistController.list);
+router.post("/", checklistController.create);
+router.post("/join", checklistController.join);
 
-// 생성
-router.post("/", checklistController.create)
+router.get("/:id", checklistController.detail);
+router.patch("/:id", checklistController.updateChecklist);
 
-// 상세
-router.get("/:id", checklistController.detail)
+router.post("/:id/items", checklistController.addItem);
+router.patch("/:id/items/:itemId", checklistController.updateItemStatus);
+router.delete("/:id/items/:itemId", checklistController.removeItem);
 
-// 아이템 추가
-router.post("/:id/items", checklistController.addItem)
+router.get("/:id/locations", checklistController.listLocations);
+router.post("/:id/locations", checklistController.addLocation);
+router.delete("/:id/locations", checklistController.clearLocations);
+router.delete("/:id/locations/:locationId", checklistController.removeLocation);
+router.patch("/:id/locations/reorder", checklistController.reorderLocations);
 
-// 아이템 상태 업데이트
-router.patch("/:id/items/:itemId", checklistController.updateItemStatus)
-
-// 아이템 삭제
-router.delete("/:id/items/:itemId", checklistController.removeItem)
-
-module.exports = router
-
+module.exports = router;

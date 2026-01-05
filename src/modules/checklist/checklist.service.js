@@ -1,9 +1,24 @@
 const { pool } = require("../../config/db");
 const crypto = require("crypto");
 
-// 초대코드 생성 (UNIQUE 충돌 가능성 낮지만, 충돌 시 재시도)
 function generateInviteCode() {
-  return crypto.randomBytes(8).toString("hex"); // 16 chars
+  return crypto.randomBytes(8).toString("hex");
+}
+
+async function isMember({ checklistId, userId }) {
+  const conn = await pool.getConnection();
+  try {
+    const [[row]] = await conn.query(
+      `SELECT 1 AS ok
+       FROM \`ChecklistMember\`
+       WHERE room_id = ? AND user_id = ?`,
+      [checklistId, userId]
+    );
+
+    return Boolean(row?.ok);
+  } finally {
+    conn.release();
+  }
 }
 
 async function list(userId) {
@@ -14,11 +29,15 @@ async function list(userId) {
           r.id,
           r.name AS title,
           r.description,
+          r.invite_code AS inviteCode,
+          r.start_date AS startDate,
+          r.end_date AS endDate,
           r.created_at AS createdAt,
           (SELECT COUNT(*) FROM \`ChecklistItem\` i WHERE i.room_id = r.id) AS itemCount,
           (SELECT COUNT(*) FROM \`ChecklistMember\` m WHERE m.room_id = r.id) AS members
        FROM \`ChecklistRoom\` r
-       WHERE r.owner_id = ?
+       INNER JOIN \`ChecklistMember\` my
+         ON my.room_id = r.id AND my.user_id = ?
        ORDER BY r.created_at DESC`,
       [userId]
     );
@@ -29,10 +48,9 @@ async function list(userId) {
   }
 }
 
-async function create({ userId, title, description }) {
+async function create({ userId, title, description, startDate, endDate }) {
   const conn = await pool.getConnection();
   try {
-    // invite_code UNIQUE라서 충돌나면 몇 번 재시도
     let inviteCode = null;
     let insertId = null;
 
@@ -41,15 +59,14 @@ async function create({ userId, title, description }) {
       try {
         const [result] = await conn.query(
           `INSERT INTO \`ChecklistRoom\`
-            (owner_id, name, description, invite_code)
-           VALUES (?, ?, ?, ?)`,
-          [userId, title, description ?? null, inviteCode]
+            (owner_id, name, description, invite_code, start_date, end_date)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [userId, title, description ?? null, inviteCode, startDate ?? null, endDate ?? null]
         );
 
         insertId = result.insertId;
         break;
       } catch (err) {
-        // 중복이면 재시도
         if (err && err.code === "ER_DUP_ENTRY") continue;
         throw err;
       }
@@ -61,8 +78,6 @@ async function create({ userId, title, description }) {
       );
     }
 
-    // (선택) 트리거가 방장 OWNER 멤버 자동 생성하지만,
-    // 혹시 트리거 없을 때도 대비해서 upsert로 보강 가능
     await conn.query(
       `INSERT INTO \`ChecklistMember\` (room_id, user_id, role)
        VALUES (?, ?, 'OWNER')
@@ -76,14 +91,47 @@ async function create({ userId, title, description }) {
   }
 }
 
-async function detail({ id }) {
+async function joinByInviteCode({ userId, inviteCode }) {
+  const code = String(inviteCode || "").trim();
+  if (!code) return null;
+
   const conn = await pool.getConnection();
   try {
+    const [[room]] = await conn.query(
+      `SELECT id FROM \`ChecklistRoom\` WHERE invite_code = ?`,
+      [code]
+    );
+    if (!room?.id) return null;
+
+    await conn.query(
+      `INSERT INTO \`ChecklistMember\` (room_id, user_id, role)
+       VALUES (?, ?, 'MEMBER')
+       ON DUPLICATE KEY UPDATE role = role`,
+      [room.id, userId]
+    );
+
+    return room.id;
+  } finally {
+    conn.release();
+  }
+}
+
+async function detail({ id, userId }) {
+  const conn = await pool.getConnection();
+  try {
+    if (userId != null) {
+      const allowed = await isMember({ checklistId: id, userId });
+      if (!allowed) return null;
+    }
+
     const [[checklist]] = await conn.query(
       `SELECT 
           id,
           name AS title,
           description,
+          invite_code AS inviteCode,
+          start_date AS startDate,
+          end_date AS endDate,
           created_at AS createdAt
        FROM \`ChecklistRoom\`
        WHERE id = ?`,
@@ -100,7 +148,7 @@ async function detail({ id }) {
           i.quantity,
           (i.status = 'DONE') AS isCompleted
        FROM \`ChecklistItem\` i
-       LEFT JOIN users u ON u.id = i.assignee_id
+       LEFT JOIN \`User\` u ON u.id = i.assignee_id
        WHERE i.room_id = ?
        ORDER BY i.id`,
       [id]
@@ -112,7 +160,7 @@ async function detail({ id }) {
           u.nickname AS name,
           m.role
        FROM \`ChecklistMember\` m
-       LEFT JOIN users u ON u.id = m.user_id
+       LEFT JOIN \`User\` u ON u.id = m.user_id
        WHERE m.room_id = ?`,
       [id]
     );
@@ -123,10 +171,28 @@ async function detail({ id }) {
   }
 }
 
+async function updateDates({ checklistId, userId, startDate, endDate }) {
+  const conn = await pool.getConnection();
+  try {
+    const allowed = await isMember({ checklistId, userId });
+    if (!allowed) return false;
+
+    const [result] = await conn.query(
+      `UPDATE \`ChecklistRoom\`
+       SET start_date = ?, end_date = ?
+       WHERE id = ?`,
+      [startDate ?? null, endDate ?? null, checklistId]
+    );
+
+    return result.affectedRows > 0;
+  } finally {
+    conn.release();
+  }
+}
+
 async function addItem({ checklistId, name, assignedTo, quantity }) {
   const conn = await pool.getConnection();
   try {
-    // assignedTo가 숫자(userId)로 오면 assignee_id로 저장, 아니면 NULL
     const assigneeId =
       assignedTo !== undefined &&
       assignedTo !== null &&
@@ -180,11 +246,190 @@ async function removeItem({ checklistId, itemId }) {
   }
 }
 
+async function listLocations({ checklistId, userId }) {
+  const conn = await pool.getConnection();
+  try {
+    if (userId != null) {
+      const allowed = await isMember({ checklistId, userId });
+      if (!allowed) return null;
+    }
+
+    const [rows] = await conn.query(
+      `SELECT
+          id,
+          place_name AS name,
+          address,
+          trip_date AS tripDate,
+          sort_order AS sortOrder,
+          lat,
+          lng,
+          kakao_place_id AS kakaoPlaceId,
+          created_at AS createdAt
+       FROM \`ChecklistLocation\`
+       WHERE room_id = ?
+       ORDER BY
+         (trip_date IS NULL) ASC,
+         trip_date ASC,
+         sort_order ASC,
+         id ASC`,
+      [checklistId]
+    );
+
+    return rows;
+  } finally {
+    conn.release();
+  }
+}
+
+async function addLocation({
+  checklistId,
+  userId,
+  name,
+  address,
+  tripDate,
+  sortOrder,
+  lat,
+  lng,
+  kakaoPlaceId,
+}) {
+  const conn = await pool.getConnection();
+  try {
+    const allowed = await isMember({ checklistId, userId });
+    if (!allowed) return null;
+
+    const safeLat = Number.parseFloat(lat);
+    const safeLng = Number.parseFloat(lng);
+    if (!Number.isFinite(safeLat) || !Number.isFinite(safeLng)) return null;
+
+    const placeName = String(name || "").trim() || "저장한 위치";
+    const placeAddress = String(address || "").trim() || null;
+    const placeId = String(kakaoPlaceId || "").trim() || null;
+    const safeTripDate = String(tripDate || "").trim() || null;
+    const safeSortOrder = Number.isFinite(Number(sortOrder))
+      ? Math.max(1, Number(sortOrder))
+      : null;
+
+    let nextSortOrder = safeSortOrder;
+    if (nextSortOrder == null) {
+      const [[row]] = await conn.query(
+        `SELECT COALESCE(MAX(sort_order), 0) AS maxOrder
+         FROM \`ChecklistLocation\`
+         WHERE room_id = ? AND (
+           (trip_date IS NULL AND ? IS NULL) OR trip_date = ?
+         )`,
+        [checklistId, safeTripDate, safeTripDate]
+      );
+      nextSortOrder = Number(row?.maxOrder || 0) + 1;
+    }
+
+    const [result] = await conn.query(
+      `INSERT INTO \`ChecklistLocation\`
+        (room_id, created_by, place_name, address, trip_date, sort_order, lat, lng, kakao_place_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        checklistId,
+        userId,
+        placeName,
+        placeAddress,
+        safeTripDate,
+        nextSortOrder,
+        safeLat,
+        safeLng,
+        placeId,
+      ]
+    );
+
+    return result.insertId;
+  } finally {
+    conn.release();
+  }
+}
+
+async function removeLocation({ checklistId, userId, locationId }) {
+  const conn = await pool.getConnection();
+  try {
+    const allowed = await isMember({ checklistId, userId });
+    if (!allowed) return false;
+
+    const [result] = await conn.query(
+      `DELETE FROM \`ChecklistLocation\`
+       WHERE id = ? AND room_id = ?`,
+      [locationId, checklistId]
+    );
+
+    return result.affectedRows > 0;
+  } finally {
+    conn.release();
+  }
+}
+
+async function clearLocations({ checklistId, userId }) {
+  const conn = await pool.getConnection();
+  try {
+    const allowed = await isMember({ checklistId, userId });
+    if (!allowed) return false;
+
+    await conn.query(
+      `DELETE FROM \`ChecklistLocation\`
+       WHERE room_id = ?`,
+      [checklistId]
+    );
+
+    return true;
+  } finally {
+    conn.release();
+  }
+}
+
+async function reorderLocations({ checklistId, userId, tripDate, orderedIds }) {
+  const conn = await pool.getConnection();
+  try {
+    const allowed = await isMember({ checklistId, userId });
+    if (!allowed) return false;
+
+    const ids = Array.isArray(orderedIds)
+      ? orderedIds.map((v) => Number(v)).filter((v) => Number.isFinite(v))
+      : [];
+    if (ids.length === 0) return true;
+
+    const safeTripDate = String(tripDate || "").trim() || null;
+
+    const caseParts = [];
+    const params = [];
+    ids.forEach((id, idx) => {
+      caseParts.push("WHEN ? THEN ?");
+      params.push(id, idx + 1);
+    });
+
+    const inList = ids.map(() => "?").join(",");
+    const sql = `
+      UPDATE \`ChecklistLocation\`
+      SET
+        sort_order = CASE id ${caseParts.join(" ")} ELSE sort_order END,
+        trip_date = ?
+      WHERE room_id = ? AND id IN (${inList})
+    `;
+
+    await conn.query(sql, [...params, safeTripDate, checklistId, ...ids]);
+    return true;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   list,
   create,
+  joinByInviteCode,
   detail,
+  isMember,
   addItem,
   updateItemStatus,
   removeItem,
+  updateDates,
+  listLocations,
+  addLocation,
+  removeLocation,
+  clearLocations,
+  reorderLocations,
 };

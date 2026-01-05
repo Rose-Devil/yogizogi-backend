@@ -66,7 +66,11 @@ class CommentService {
     for (const id of authorIds) {
       if (id === 1) {
         // AI or Admin fallback
-        authors[id] = { id: 1, nickname: "AI 여행 봇", profile_image: null };
+        authors[id] = {
+          id: 1,
+          nickname: "AI 여행 봇",
+          profile_image: "/ai-bot-avatar.png",
+        };
       } else {
         try {
           const profile = await User.findProfile(id);
