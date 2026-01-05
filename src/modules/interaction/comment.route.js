@@ -17,6 +17,16 @@ router.post(
     commentController.createReply
 );
 
+// 댓글 수정
+router.put("/comments/:commentId", authGuard, commentController.updateComment);
+
+// 댓글 삭제
+router.delete(
+    "/comments/:commentId",
+    authGuard,
+    commentController.deleteComment
+);
+
 // 댓글 목록 조회 (인증 불필요)
 router.get("/posts/:postId/comments", commentController.getComments);
 

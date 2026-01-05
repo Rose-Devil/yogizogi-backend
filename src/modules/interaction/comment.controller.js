@@ -51,6 +51,37 @@ class CommentController {
             next(error);
         }
     };
+
+    // 댓글 수정
+    updateComment = async (req, res, next) => {
+        try {
+            const { commentId } = req.params;
+            const { content } = req.body;
+            const userId = req.user?.id; // authGuard에서 보장
+
+            const updatedComment = await commentService.updateComment(
+                commentId,
+                userId,
+                content
+            );
+            res.status(200).json({ success: true, data: updatedComment });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    // 댓글 삭제
+    deleteComment = async (req, res, next) => {
+        try {
+            const { commentId } = req.params;
+            const userId = req.user?.id; // authGuard에서 보장
+
+            await commentService.deleteComment(commentId, userId);
+            res.status(200).json({ success: true, message: "댓글이 삭제되었습니다." });
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 module.exports = new CommentController();
